@@ -3,15 +3,16 @@ import { prisma, ensurePrisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCustomersPage() {
-  const prisma = await ensurePrisma();
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, email: true, name: true, phone: true, role: true, address: true, createdAt: true }
-  });
-  const orderCounts = await prisma.order.groupBy({ by: ['userId'], _count: { _all: true } });
-  const countMap: Record<string, number> = {};
-  for (const oc of orderCounts) if (oc.userId) countMap[oc.userId] = (oc as any)._count?._all ?? 0;
-  return (
+  try {
+    const prisma = await ensurePrisma();
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, email: true, name: true, phone: true, role: true, address: true, createdAt: true }
+    });
+    const orderCounts = await prisma.order.groupBy({ by: ['userId'], _count: { _all: true } });
+    const countMap: Record<string, number> = {};
+    for (const oc of orderCounts) if (oc.userId) countMap[oc.userId] = (oc as any)._count?._all ?? 0;
+    return (
     <div>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3">
         <h1 className="text-2xl font-bold">👥 จัดการลูกค้า</h1>
@@ -49,4 +50,7 @@ export default async function AdminCustomersPage() {
       </div>
     </div>
   );
+  } catch (err: any) {
+    return <div className="p-6 text-red-600">Customers error: {String(err?.message || err)}</div>;
+  }
 }
