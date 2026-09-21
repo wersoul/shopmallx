@@ -1,5 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All } from '@/lib/d1';
 import { redirect } from 'next/navigation';
 import { statusLabel, statusColor, priceFormat } from '@/lib/settings';
 import Link from 'next/link';
@@ -7,15 +7,17 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function OrdersPage() {
-  const prisma = await ensurePrisma();
   const user = await getCurrentUser();
   if (!user) redirect('/login?redirect=/account/orders');
 
-  const orders = await prisma.order.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    include: { items: true }
-  });
+  const orderRows = await d1All<any>('SELECT id, orderNumber, total, shipping, status, createdAt FROM `Order` WHERE userId = ? ORDER BY createdAt DESC', [user.id]);
+  const items = orderRows.length ? await d1All<any>('SELECT orderId, name, price, quantity, subtotal FROM OrderItem WHERE orderId IN (' + orderRows.map(() => '?').join(',') + ')', orderRows.map((o: any) => o.id)) : [];
+  const byOrder: Record<string, any[]> = {};
+  for (const it of items) {
+    if (!byOrder[it.orderId]) byOrder[it.orderId] = [];
+    byOrder[it.orderId].push(it);
+  }
+  const orders = orderRows.map(o => ({ ...o, items: byOrder[o.id] || [] }));
 
   return (
     <div className="max-w-5xl mx-auto px-3 py-4">

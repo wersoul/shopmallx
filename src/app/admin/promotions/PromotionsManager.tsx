@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function PromotionsManager({ promotions: initial }: { promotions: any[] }) {
   const [items, setItems] = useState(initial);
@@ -36,7 +37,7 @@ export default function PromotionsManager({ promotions: initial }: { promotions:
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map(p => (
           <div key={p.id} className="bg-gradient-to-br from-brand-500 to-brand-700 text-white rounded-lg p-4 flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-extrabold shrink-0">{p.badge}</div>
+            {p.image ? <img src={p.image} alt="" className="w-12 h-12 object-cover rounded shrink-0" /> : <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-extrabold shrink-0">{p.badge}</div>}
             <div className="flex-1 min-w-0">
               <div className="font-bold">{p.title}</div>
               <div className="text-sm opacity-90">{p.description}</div>
@@ -54,19 +55,33 @@ export default function PromotionsManager({ promotions: initial }: { promotions:
 }
 
 function PromoForm({ item, onSave, onClose }: any) {
-  const [form, setForm] = useState(item);
+  const [form, setForm] = useState({ ...item, images: item.image ? [item.image] : [] });
   const [loading, setLoading] = useState(false);
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
-      <div className="bg-white rounded-lg w-full max-w-md p-5">
+      <div className="bg-white rounded-lg w-full max-w-md p-5 max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold">{item.id ? 'แก้ไขโปรโมชั่น' : 'เพิ่มโปรโมชั่น'}</h2>
           <button onClick={onClose}><FiX /></button>
         </div>
-        <form onSubmit={async e => { e.preventDefault(); setLoading(true); await onSave(form); setLoading(false); }} className="space-y-2 text-sm">
+        <form onSubmit={async e => {
+          e.preventDefault();
+          setLoading(true);
+          await onSave({ ...form, image: (form.images && form.images[0]) || '' });
+          setLoading(false);
+        }} className="space-y-2 text-sm">
           <input required placeholder="หัวเรื่อง *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full border rounded px-3 py-2" />
           <input placeholder="คำอธิบาย" value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border rounded px-3 py-2" />
-          <input required placeholder="Badge (เช่น FREE, -10%) *" value={form.badge} onChange={e => setForm({ ...form, badge: e.target.value })} className="w-full border rounded px-3 py-2" />
+          <input placeholder="Badge (เช่น FREE, -10%)" value={form.badge || ''} onChange={e => setForm({ ...form, badge: e.target.value })} className="w-full border rounded px-3 py-2" />
+          <div>
+            <label className="block mb-1 font-medium">รูปโปรโมชั่น</label>
+            <ImageUploader
+              value={form.images}
+              onChange={(urls) => setForm({ ...form, images: urls })}
+              folder="promotions"
+              multiple={false}
+            />
+          </div>
           <input placeholder="ลิงก์" value={form.link || ''} onChange={e => setForm({ ...form, link: e.target.value })} className="w-full border rounded px-3 py-2" />
           <input type="number" placeholder="ลำดับ" value={form.sortOrder || 0} onChange={e => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} className="w-full border rounded px-3 py-2" />
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} /> เปิดใช้งาน</label>

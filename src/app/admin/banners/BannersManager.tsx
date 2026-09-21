@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function BannersManager({ banners: initial }: { banners: any[] }) {
   const [items, setItems] = useState(initial);
@@ -58,20 +59,33 @@ export default function BannersManager({ banners: initial }: { banners: any[] })
 }
 
 function BannerForm({ item, onSave, onClose }: any) {
-  const [form, setForm] = useState(item);
+  const [form, setForm] = useState({ ...item, images: item.image ? [item.image] : [] });
   const [loading, setLoading] = useState(false);
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
-      <div className="bg-white rounded-lg w-full max-w-md p-5">
+      <div className="bg-white rounded-lg w-full max-w-md p-5 max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold">{item.id ? 'แก้ไข Banner' : 'เพิ่ม Banner'}</h2>
           <button onClick={onClose}><FiX /></button>
         </div>
-        <form onSubmit={async e => { e.preventDefault(); setLoading(true); await onSave(form); setLoading(false); }} className="space-y-2 text-sm">
+        <form onSubmit={async e => {
+          e.preventDefault();
+          setLoading(true);
+          await onSave({ ...form, image: (form.images && form.images[0]) || '' });
+          setLoading(false);
+        }} className="space-y-2 text-sm">
           <input required placeholder="หัวเรื่อง *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full border rounded px-3 py-2" />
           <input placeholder="คำอธิบาย" value={form.subtitle || ''} onChange={e => setForm({ ...form, subtitle: e.target.value })} className="w-full border rounded px-3 py-2" />
-          <input required placeholder="URL รูปภาพ *" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full border rounded px-3 py-2" />
-          {form.image && <img src={form.image} alt="" className="w-full aspect-video object-cover rounded" />}
+          <div>
+            <label className="block mb-1 font-medium">รูปภาพ *</label>
+            <ImageUploader
+              value={form.images}
+              onChange={(urls) => setForm({ ...form, images: urls })}
+              folder="banners"
+              multiple={false}
+            />
+          </div>
+          {form.images?.[0] && <img src={form.images[0]} alt="" className="w-full aspect-video object-cover rounded" />}
           <input placeholder="ลิงก์ (เช่น /products)" value={form.link || ''} onChange={e => setForm({ ...form, link: e.target.value })} className="w-full border rounded px-3 py-2" />
           <select value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} className="w-full border rounded px-3 py-2">
             <option value="hero">Hero (สไลด์หลัก)</option>

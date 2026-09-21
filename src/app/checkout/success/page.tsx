@@ -1,14 +1,11 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1First } from '@/lib/d1';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SuccessPage({ searchParams }: { searchParams: { id?: string } }) {
-  const prisma = await ensurePrisma();
-  const order = searchParams.id ? await prisma.order.findUnique({
-    where: { id: searchParams.id },
-    include: { items: true }
-  }) : null;
+  const orderRow = searchParams.id ? await d1First<any>('SELECT orderNumber, total FROM `Order` WHERE id = ?', [searchParams.id]) : null;
+  const order = orderRow;
 
   return (
     <div className="max-w-2xl mx-auto px-3 py-10 text-center">

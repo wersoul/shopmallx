@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import ImageUploader from '@/components/ImageUploader';
 
 export default function CategoriesManager({ categories: initial }: { categories: any[] }) {
   const router = useRouter();
@@ -32,7 +33,23 @@ export default function CategoriesManager({ categories: initial }: { categories:
   };
 
   const empty = { name: '', slug: '', description: '', parentId: '', image: '', sortOrder: 0, isActive: true };
-  const parents = cats.filter(c => !c.parentId);
+
+  // Exclude self + descendants from parent picker so we can't create cycles.
+  const parentOptions = (current: any) => {
+    if (!current?.id) return cats.filter(c => !c.parentId);
+    const descendants = new Set<string>([current.id]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const c of cats) {
+        if (c.parentId && descendants.has(c.parentId) && !descendants.has(c.id)) {
+          descendants.add(c.id);
+          added = true;
+        }
+      }
+    }
+    return cats.filter(c => !c.parentId && !descendants.has(c.id));
+  };
 
   return (
     <div>
@@ -44,13 +61,24 @@ export default function CategoriesManager({ categories: initial }: { categories:
       <div className="bg-white rounded-lg shadow-card overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs uppercase">
-            <tr><th className="text-left px-3 py-2">ชื่อ</th><th className="text-left px-3 py-2">Slug</th><th className="text-left px-3 py-2">หมวดแม่</th><th className="text-center px-3 py-2">ลำดับ</th><th className="text-center px-3 py-2">สถานะ</th><th className="text-center px-3 py-2">จัดการ</th></tr>
+            <tr>
+              <th className="text-left px-3 py-2">ชื่อ</th>
+              <th className="text-left px-3 py-2">Slug</th>
+              <th className="text-center px-3 py-2">รูป</th>
+              <th className="text-left px-3 py-2">หมวดแม่</th>
+              <th className="text-center px-3 py-2">ลำดับ</th>
+              <th className="text-center px-3 py-2">สถานะ</th>
+              <th className="text-center px-3 py-2">จัดการ</th>
+            </tr>
           </thead>
           <tbody>
             {cats.map(c => (
               <tr key={c.id} className="border-t hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium">{c.parentId ? '└ ' : ''}{c.name}</td>
                 <td className="px-3 py-2 font-mono text-xs">{c.slug}</td>
+                <td className="px-3 py-2 text-center">
+                  {c.image ? <img src={c.image} alt="" className="w-10 h-10 object-cover rounded inline-block" /> : <span className="text-gray-300">-</span>}
+                </td>
                 <td className="px-3 py-2 text-gray-500">{cats.find(p => p.id === c.parentId)?.name || '-'}</td>
                 <td className="px-3 py-2 text-center">{c.sortOrder}</td>
                 <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-xs ${c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{c.isActive ? 'เปิด' : 'ปิด'}</span></td>
@@ -64,30 +92,52 @@ export default function CategoriesManager({ categories: initial }: { categories:
         </table>
       </div>
 
-      {(creating || editing) && <CatForm cat={editing || empty} parents={parents} onSave={save} onClose={() => { setEditing(null); setCreating(false); }} />}
+      {(creating || editing) && (
+        <CatForm
+          cat={editing || empty}
+          parentOptions={parentOptions(editing)}
+          onSave={save}
+          onClose={() => { setEditing(null); setCreating(false); }}
+        />
+      )}
     </div>
   );
 }
 
-function CatForm({ cat, parents, onSave, onClose }: any) {
-  const [form, setForm] = useState(cat);
+function CatForm({ cat, parentOptions, onSave, onClose }: any) {
+  const [form, setForm] = useState({ ...cat, images: cat.image ? [cat.image] : [] });
   const [loading, setLoading] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
-      <div className="bg-white rounded-lg w-full max-w-md p-5">
+      <div className="bg-white rounded-lg w-full max-w-md p-5 max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold">{cat.id ? 'แก้ไขหมวด' : 'เพิ่มหมวดใหม่'}</h2>
           <button onClick={onClose}><FiX /></button>
         </div>
-        <form onSubmit={async e => { e.preventDefault(); setLoading(true); await onSave(form); setLoading(false); }} className="space-y-2 text-sm">
+        <form onSubmit={async e => {
+          e.preventDefault();
+          setLoading(true);
+          // collapse the image list back to a single image string for the API
+          await onSave({ ...form, image: (form.images && form.images[0]) || '' });
+          setLoading(false);
+        }} className="space-y-2 text-sm">
           <input required placeholder="ชื่อหมวด *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full border rounded px-3 py-2" />
           <input placeholder="Slug" value={form.slug || ''} onChange={e => setForm({ ...form, slug: e.target.value })} className="w-full border rounded px-3 py-2" />
+          <textarea placeholder="คำอธิบาย" rows={2} value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border rounded px-3 py-2" />
           <select value={form.parentId || ''} onChange={e => setForm({ ...form, parentId: e.target.value })} className="w-full border rounded px-3 py-2">
             <option value="">- ไม่มีหมวดแม่ -</option>
-            {parents.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {parentOptions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <input placeholder="URL รูปภาพ" value={form.image || ''} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full border rounded px-3 py-2" />
+          <div>
+            <label className="block mb-1 font-medium">รูปหมวดหมู่</label>
+            <ImageUploader
+              value={form.images}
+              onChange={(urls) => setForm({ ...form, images: urls })}
+              folder="categories"
+              multiple={false}
+            />
+          </div>
           <input type="number" placeholder="ลำดับ" value={form.sortOrder || 0} onChange={e => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} className="w-full border rounded px-3 py-2" />
           <label className="flex items-center gap-2"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} /> เปิดใช้งาน</label>
           <div className="flex gap-2 pt-3 border-t">

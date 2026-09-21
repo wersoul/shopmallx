@@ -1,26 +1,29 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All } from '@/lib/d1';
 import ProductCard from '@/components/ProductCard';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage({ searchParams }: { searchParams: { category?: string; q?: string } }) {
-  const prisma = await ensurePrisma();
-  const cats = await prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: 'asc' } });
-  const allSubs = await prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
+  const allCats = await d1All<any>('SELECT id, name, slug, parentId, sortOrder FROM Category WHERE isActive = 1 ORDER BY sortOrder ASC');
+  const cats = allCats.filter((c: any) => !c.parentId);
 
   let categoryId: string | undefined;
   let activeCat: any = null;
   if (searchParams.category) {
-    const cat = allSubs.find(c => c.slug === searchParams.category);
+    const cat = allCats.find(c => c.slug === searchParams.category);
     if (cat) { categoryId = cat.id; activeCat = cat; }
   }
 
-  const where: any = { isActive: true };
-  if (categoryId) where.categoryId = categoryId;
-  if (searchParams.q) where.name = { contains: searchParams.q };
-
-  const products = await prisma.product.findMany({ where, orderBy: { createdAt: 'desc' } });
+  // Build product query with optional category and name search.
+  const binds: any[] = [];
+  let where = 'isActive = 1';
+  if (categoryId) { where += ' AND categoryId = ?'; binds.push(categoryId); }
+  if (searchParams.q) { where += ' AND name LIKE ?'; binds.push('%' + searchParams.q + '%'); }
+  const products = await d1All<any>(
+    `SELECT id, name, slug, price, salePrice, images, isFeatured, isNew FROM Product WHERE ${where} ORDER BY createdAt DESC`,
+    binds
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-3 py-4">

@@ -1,4 +1,4 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1First, d1All } from '@/lib/d1';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import AddToCart from './AddToCart';
@@ -7,18 +7,21 @@ import { priceFormat } from '@/lib/settings';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
-  const prisma = await ensurePrisma();
-  const product = await prisma.product.findUnique({
-    where: { slug: params.slug },
-    include: { category: true }
-  });
-  if (!product) return notFound();
+  const productRow = await d1First<any>(
+    `SELECT p.id, p.name, p.slug, p.description, p.price, p.salePrice, p.images, p.stock, p.brand, p.categoryId,
+            c.name as categoryName, c.slug as categorySlug
+     FROM Product p LEFT JOIN Category c ON p.categoryId = c.id
+     WHERE p.slug = ? AND p.isActive = 1`,
+    [params.slug]
+  );
+  if (!productRow) return notFound();
+  const product = { ...productRow, category: { name: productRow.categoryName, slug: productRow.categorySlug } };
 
   const images = JSON.parse(product.images || '[]');
-  const related = await prisma.product.findMany({
-    where: { categoryId: product.categoryId, isActive: true, id: { not: product.id } },
-    take: 4
-  });
+  const related = await d1All<any>(
+    'SELECT id, name, slug, price, salePrice, images FROM Product WHERE categoryId = ? AND isActive = 1 AND id != ? LIMIT 4',
+    [product.categoryId, product.id]
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-3 py-4">

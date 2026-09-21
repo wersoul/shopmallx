@@ -8,5 +8,15 @@ binding = "DB"
 database_name = "shopmallx-db"
 database_id = "cc658e57-35aa-47b3-97fd-9316e38c78a4"
 
+# R2 bucket for user-uploaded images (products / categories / banners / promotions)
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "shopmallx"
+
+# Public base URL for the bucket — set R2_PUBLIC_BASE via
+#   wrangler pages secret put R2_PUBLIC_BASE
+# Example value: https://pub-xxxx.r2.dev   (R2 public dev subdomain)
+# Or your custom domain: https://cdn.yourdomain.tld
+
 # Secrets — set with `wrangler pages secret put NAME`
-# JWT_SECRET, DATABASE_URL (for local Prisma migrate)
+# JWT_SECRET

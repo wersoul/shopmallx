@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { hashPassword, verifyPassword } from './password';
-import { prisma, ensurePrisma } from './prisma';
+import { d1First, d1Run } from './d1';
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'shopmallx-secret');
 const COOKIE_NAME = 'shopmallx_token';
@@ -24,13 +24,12 @@ export async function verifyToken(token: string) {
 }
 
 export async function getCurrentUser() {
-  const prisma = await ensurePrisma();
   const c = cookies();
   const token = c.get(COOKIE_NAME)?.value;
   if (!token) return null;
   const payload = await verifyToken(token);
   if (!payload) return null;
-  const user = await prisma.user.findUnique({ where: { id: payload.userId as string } });
+  const user = await d1First<any>('SELECT id, email, name, role FROM User WHERE id = ?', [payload.userId as string]);
   return user;
 }
 
@@ -41,8 +40,7 @@ export async function requireAdmin() {
 }
 
 export async function login(email: string, password: string) {
-  const prisma = await ensurePrisma();
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await d1First<any>('SELECT id, email, name, role, password FROM User WHERE email = ?', [email]);
   if (!user) return null;
   const ok = await verifyPassword(password, user.password);
   if (!ok) return null;
@@ -58,16 +56,17 @@ export async function logout() {
 }
 
 export async function register(data: { email: string; password: string; name: string; phone?: string }) {
-  const prisma = await ensurePrisma();
-  const exists = await prisma.user.findUnique({ where: { email: data.email } });
+  const exists = await d1First<any>('SELECT id FROM User WHERE email = ?', [data.email]);
   if (exists) throw new Error('Email นี้ถูกใช้งานแล้ว');
   const hash = await hashPassword(data.password);
-  const user = await prisma.user.create({
-    data: { ...data, password: hash, role: 'customer' }
-  });
-  const token = await signToken({ userId: user.id, role: user.role });
+  const id = 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  await d1Run(
+    'INSERT INTO User (id, email, password, name, phone, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, data.email, hash, data.name, data.phone || null, 'customer', new Date().toISOString(), new Date().toISOString()]
+  );
+  const token = await signToken({ userId: id, role: 'customer' });
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
   });
-  return user;
+  return { id, email: data.email, name: data.name, role: 'customer' };
 }

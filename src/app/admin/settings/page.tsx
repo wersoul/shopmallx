@@ -1,11 +1,9 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All, serialize } from '@/lib/d1';
 import SettingsForm from './SettingsForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminSettingsPage() {
-  const prisma = await ensurePrisma();
-  const settings = await prisma.setting.findMany();
-  const safe = (settings as any[]).map(s => ({ id: s.id, key: s.key, value: s.value }));
-  return <SettingsForm settings={safe} />;
+  const settings = await d1All<any>('SELECT id, key, value FROM Setting');
+  return <SettingsForm settings={serialize(settings) as any} />;
 }

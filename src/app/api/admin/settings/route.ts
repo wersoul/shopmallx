@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All, d1First, d1Run } from '@/lib/d1';
 import { requireAdmin } from '@/lib/auth';
 
+function genId() {
+  return 's_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
 export async function GET() {
-  const prisma = await ensurePrisma();
-  const items = await prisma.setting.findMany();
-  return NextResponse.json({ settings: items });
+  const settings = await d1All<any>('SELECT id, key, value FROM Setting');
+  return NextResponse.json({ settings });
 }
 
 export async function PUT(req: NextRequest) {
-  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const data = await req.json() as any;
-  const updates = [];
+  const now = new Date().toISOString();
   for (const [key, value] of Object.entries(data)) {
-    updates.push(prisma.setting.upsert({
-      where: { key }, update: { value: String(value) }, create: { key, value: String(value) }
-    }));
+    const existing = await d1First<any>('SELECT id FROM Setting WHERE key = ?', [key]);
+    if (existing) {
+      await d1Run('UPDATE Setting SET value = ?, updatedAt = ? WHERE id = ?', [String(value), now, existing.id]);
+    } else {
+      await d1Run('INSERT INTO Setting (id, key, value, updatedAt) VALUES (?, ?, ?, ?)', [genId(), key, String(value), now]);
+    }
   }
-  await Promise.all(updates);
   return NextResponse.json({ success: true });
 }

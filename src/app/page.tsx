@@ -1,20 +1,29 @@
 import Link from 'next/link';
 import BannerSlider from '@/components/BannerSlider';
 import ProductCard from '@/components/ProductCard';
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All } from '@/lib/d1';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const prisma = await ensurePrisma();
   const [banners, sidebar, promotions, featured, newProducts, categories] = await Promise.all([
-    prisma.banner.findMany({ where: { position: 'hero', isActive: true }, orderBy: { sortOrder: 'asc' } }),
-    prisma.banner.findMany({ where: { position: 'sidebar', isActive: true }, orderBy: { sortOrder: 'asc' }, take: 2 }),
-    prisma.promotion.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
-    prisma.product.findMany({ where: { isFeatured: true, isActive: true }, orderBy: { createdAt: 'desc' }, take: 8 }),
-    prisma.product.findMany({ where: { isNew: true, isActive: true }, orderBy: { createdAt: 'desc' }, take: 8 }),
-    prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: 'asc' }, include: { children: { where: { isActive: true } } } })
+    d1All<any>('SELECT id, title, subtitle, image, link FROM Banner WHERE position = ? AND isActive = 1 ORDER BY sortOrder ASC', ['hero']),
+    d1All<any>('SELECT id, title, subtitle, image, link FROM Banner WHERE position = ? AND isActive = 1 ORDER BY sortOrder ASC LIMIT 2', ['sidebar']),
+    d1All<any>('SELECT id, title, description, badge FROM Promotion WHERE isActive = 1 ORDER BY sortOrder ASC'),
+    d1All<any>('SELECT id, name, slug, price, salePrice, images FROM Product WHERE isFeatured = 1 AND isActive = 1 ORDER BY createdAt DESC LIMIT 8'),
+    d1All<any>('SELECT id, name, slug, price, salePrice, images FROM Product WHERE isNew = 1 AND isActive = 1 ORDER BY createdAt DESC LIMIT 8'),
+    d1All<any>('SELECT id, name, slug, parentId, sortOrder FROM Category WHERE isActive = 1 ORDER BY sortOrder ASC')
   ]);
+  // Build parent + children tree
+  const parents = categories.filter((c: any) => !c.parentId);
+  const byParent: Record<string, any[]> = {};
+  for (const c of categories) {
+    if (c.parentId) {
+      if (!byParent[c.parentId]) byParent[c.parentId] = [];
+      byParent[c.parentId].push(c);
+    }
+  }
+  const enrichedCategories = parents.map((p: any) => ({ ...p, children: byParent[p.id] || [] }));
 
   return (
     <div className="max-w-7xl mx-auto px-3 py-4 space-y-6">
@@ -56,7 +65,7 @@ export default async function HomePage() {
           <Link href="/products" className="text-brand-600 text-sm hover:underline">ดูทั้งหมด →</Link>
         </div>
         <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-          {categories.map(c => (
+          {enrichedCategories.map(c => (
             <Link key={c.id} href={`/products?category=${c.slug}`}
               className="bg-white rounded-lg p-3 text-center shadow-card hover:shadow-lg hover:-translate-y-0.5 transition border border-gray-100">
               <div className="w-12 h-12 mx-auto bg-brand-50 rounded-full flex items-center justify-center text-2xl">📦</div>

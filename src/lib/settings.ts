@@ -1,8 +1,7 @@
-import { prisma, ensurePrisma } from './prisma';
+import { d1All } from './d1';
 
 export async function getSettings(): Promise<Record<string, string>> {
-  const prisma = await ensurePrisma();
-  const rows = await prisma.setting.findMany();
+  const rows = await d1All<any>('SELECT key, value FROM Setting');
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
   return map;

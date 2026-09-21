@@ -1,17 +1,18 @@
 import { getCurrentUser } from '@/lib/auth';
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1First } from '@/lib/d1';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
-  const prisma = await ensurePrisma();
   const user = await getCurrentUser();
   if (!user) redirect('/login?redirect=/account');
 
-  const ordersCount = await prisma.order.count({ where: { userId: user.id } });
-  const pendingCount = await prisma.order.count({ where: { userId: user.id, status: 'pending' } });
+  const ordersRow = await d1First<{ c: number }>('SELECT COUNT(*) AS c FROM `Order` WHERE userId = ?', [user.id]);
+  const pendingRow = await d1First<{ c: number }>("SELECT COUNT(*) AS c FROM `Order` WHERE userId = ? AND status = 'pending'", [user.id]);
+  const ordersCount = ordersRow?.c ?? 0;
+  const pendingCount = pendingRow?.c ?? 0;
 
   return (
     <div className="max-w-5xl mx-auto px-3 py-4">

@@ -1,10 +1,9 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1First } from '@/lib/d1';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContentPage({ params }: { params: { key: string } }) {
-  const prisma = await ensurePrisma();
-  const content = await prisma.content.findUnique({ where: { key: params.key } });
+  const content = await d1First<any>('SELECT title, body FROM Content WHERE key = ?', [params.key]);
   if (!content) {
     return (
       <div className="max-w-3xl mx-auto px-3 py-10 text-center">

@@ -13,6 +13,19 @@ const labels: any = {
   bank_name: 'ชื่อธนาคาร', bank_account: 'เลขที่บัญชี', bank_holder: 'ชื่อบัญชี', shipping_fee: 'ค่าจัดส่ง (บาท)', free_shipping_min: 'ส่งฟรีเมื่อซื้อครบ (บาท)'
 };
 
+const COLOR_PRESETS = [
+  '#ff2d2d', // red (default)
+  '#ed1515', // crimson
+  '#f97316', // orange
+  '#eab308', // yellow
+  '#16a34a', // green
+  '#0ea5e9', // sky
+  '#2563eb', // blue
+  '#7c3aed', // violet
+  '#db2777', // pink
+  '#1f2937'  // slate
+];
+
 export default function SettingsForm({ settings }: { settings: any[] }) {
   const initial: any = {};
   settings.forEach(s => initial[s.key] = s.value);
@@ -38,12 +51,51 @@ export default function SettingsForm({ settings }: { settings: any[] }) {
       <div className="bg-white rounded-lg shadow-card p-4 mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">⚙ ตั้งค่าเว็บไซต์</h1>
-          <p className="text-sm text-gray-500">แก้ไขข้อมูลทั่วไป การติดต่อ บัญชีธนาคาร ค่าจัดส่ง</p>
+          <p className="text-sm text-gray-500">แก้ไขข้อมูลทั่วไป การติดต่อ บัญชีธนาคาร ค่าจัดส่ง สีธีม</p>
         </div>
         <button disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2 rounded font-semibold">
           {saving ? 'กำลังบันทึก...' : saved ? '✓ บันทึกแล้ว' : 'บันทึกทั้งหมด'}
         </button>
       </div>
+
+      <div className="bg-white rounded-lg shadow-card p-4 mb-3">
+        <h2 className="font-bold mb-3 text-brand-600">🎨 สีธีมเว็บไซต์</h2>
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={form.primary_color || '#ff2d2d'}
+              onChange={e => setForm({ ...form, primary_color: e.target.value })}
+              className="w-14 h-14 rounded cursor-pointer border"
+            />
+            <input
+              type="text"
+              value={form.primary_color || ''}
+              onChange={e => setForm({ ...form, primary_color: e.target.value })}
+              placeholder="#ff2d2d"
+              className="border rounded px-3 py-2 font-mono w-32"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {COLOR_PRESETS.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setForm({ ...form, primary_color: c })}
+                className={`w-8 h-8 rounded-full border-2 ${form.primary_color === c ? 'border-black scale-110' : 'border-white shadow'}`}
+                style={{ background: c }}
+                title={c}
+              />
+            ))}
+          </div>
+          <div className="flex gap-2 ml-auto">
+            <button type="button" onClick={() => setForm({ ...form, primary_color: '#ff2d2d' })} className="px-3 py-2 text-xs border rounded">รีเซ็ต</button>
+            <div className="w-12 h-12 rounded shadow" style={{ background: form.primary_color || '#ff2d2d' }} />
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">สีนี้จะถูกใช้กับปุ่ม ลิงก์ หัวข้อ ไอคอน และองค์ประกอบหลักทั้งหมดของเว็บไซต์</p>
+      </div>
+
       {groups.map(g => (
         <div key={g.title} className="bg-white rounded-lg shadow-card p-4 mb-3">
           <h2 className="font-bold mb-3 text-brand-600">{g.title}</h2>

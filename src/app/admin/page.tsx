@@ -1,28 +1,33 @@
-import { prisma, ensurePrisma } from '@/lib/prisma';
+import { d1All, d1First } from '@/lib/d1';
 import Link from 'next/link';
 import { priceFormat } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
-  const prisma = await ensurePrisma();
-  const [products, orders, users, totalRevenue] = await Promise.all([
-    prisma.product.count(),
-    prisma.order.count(),
-    prisma.user.count({ where: { role: 'customer' } }),
-    prisma.order.aggregate({ _sum: { total: true }, where: { status: { in: ['verified', 'shipping', 'completed'] } } })
+  const [pRow, oRow, uRow, revRow] = await Promise.all([
+    d1First<{ c: number }>('SELECT COUNT(*) AS c FROM Product'),
+    d1First<{ c: number }>('SELECT COUNT(*) AS c FROM `Order`'),
+    d1First<{ c: number }>("SELECT COUNT(*) AS c FROM User WHERE role = 'customer'"),
+    d1First<{ s: number }>("SELECT COALESCE(SUM(total), 0) AS s FROM `Order` WHERE status IN ('verified','shipping','completed')")
   ]);
+  const products = pRow?.c ?? 0;
+  const orders = oRow?.c ?? 0;
+  const users = uRow?.c ?? 0;
+  const totalRevenue = revRow?.s ?? 0;
 
-  const recent = await prisma.order.findMany({
-    orderBy: { createdAt: 'desc' }, take: 5,
-    include: { user: { select: { name: true } } }
-  });
+  const recentRaw = await d1All<any>(
+    `SELECT o.id, o.orderNumber, o.customerName, o.total, o.status, o.createdAt, u.name as userName
+     FROM \`Order\` o LEFT JOIN User u ON o.userId = u.id
+     ORDER BY o.createdAt DESC LIMIT 5`
+  );
+  const recent = recentRaw.map(r => ({ ...r, user: { name: r.userName } }));
 
   const stats = [
     { label: 'สินค้าทั้งหมด', value: products, color: 'bg-blue-500', icon: '📦', link: '/admin/products' },
     { label: 'คำสั่งซื้อ', value: orders, color: 'bg-green-500', icon: '🛒', link: '/admin/orders' },
     { label: 'ลูกค้า', value: users, color: 'bg-purple-500', icon: '👥', link: '/admin/customers' },
-    { label: 'ยอดขายรวม', value: '฿' + priceFormat(totalRevenue._sum.total || 0), color: 'bg-brand-500', icon: '💰', link: '/admin/orders' }
+    { label: 'ยอดขายรวม', value: '฿' + priceFormat(totalRevenue || 0), color: 'bg-brand-500', icon: '💰', link: '/admin/orders' }
   ];
 
   return (
