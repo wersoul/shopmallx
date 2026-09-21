@@ -9,7 +9,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
-  const data = await req.json();
+  const data = await req.json() as any;
   const item = await prisma.promotion.create({ data });
   return NextResponse.json({ success: true, promotion: item });
 }

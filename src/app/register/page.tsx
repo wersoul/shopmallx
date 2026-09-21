@@ -18,7 +18,7 @@ export default function RegisterPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form)
     });
-    const data = await res.json();
+    const data = await res.json() as any;
     if (!res.ok) {
       setErr(data.error || 'สมัครสมาชิกไม่สำเร็จ');
       setLoading(false);

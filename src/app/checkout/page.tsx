@@ -14,7 +14,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     setItems(JSON.parse(localStorage.getItem('cart') || '[]'));
     fetch('/api/settings').then(r => r.json()).then(setSettings);
-    fetch('/api/auth/me').then(r => r.json()).then(u => {
+    fetch('/api/auth/me').then(r => r.json()).then((u: any) => {
       if (u?.user) {
         setUser(u.user);
         setForm(f => ({ ...f, customerName: u.user.name, customerPhone: u.user.phone || '', customerEmail: u.user.email, address: u.user.address || '' }));
@@ -37,7 +37,7 @@ export default function CheckoutPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, items, subtotal, shipping, total, userId: user?.id })
     });
-    const data = await res.json();
+    const data = await res.json() as any;
     if (data.success) {
       localStorage.removeItem('cart');
       window.dispatchEvent(new Event('cartUpdate'));

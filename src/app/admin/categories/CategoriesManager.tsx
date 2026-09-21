@@ -16,7 +16,7 @@ export default function CategoriesManager({ categories: initial }: { categories:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) {
       setEditing(null); setCreating(false);
       if (isNew) setCats([...cats, r.category]);

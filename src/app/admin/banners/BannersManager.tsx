@@ -12,7 +12,7 @@ export default function BannersManager({ banners: initial }: { banners: any[] })
     const res = await fetch(isNew ? '/api/admin/banners' : `/api/admin/banners/${data.id}`, {
       method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
     });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) {
       setEditing(null); setCreating(false);
       if (isNew) setItems([...items, r.banner]); else setItems(items.map(i => i.id === r.banner.id ? r.banner : i));

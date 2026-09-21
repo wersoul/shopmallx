@@ -18,7 +18,7 @@ export default function LoginPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
+    const data = await res.json() as any;
     if (!res.ok) {
       setErr(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
       setLoading(false);

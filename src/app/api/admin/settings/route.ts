@@ -9,7 +9,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
-  const data = await req.json();
+  const data = await req.json() as any;
   const updates = [];
   for (const [key, value] of Object.entries(data)) {
     updates.push(prisma.setting.upsert({

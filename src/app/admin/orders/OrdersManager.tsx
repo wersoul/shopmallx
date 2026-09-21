@@ -15,7 +15,7 @@ export default function OrdersManager({ orders: initial }: { orders: any[] }) {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
     });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) setOrders(orders.map(o => o.id === id ? r.order : o));
   };
 

@@ -5,14 +5,20 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "prisma generate && next build",
+    "build:cf": "prisma generate && next build && npx --no-install @cloudflare/next-on-pages",
     "start": "next start -p 3000",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
+    "d1:migrate": "wrangler d1 migrations apply shopmallx-db --remote",
+    "d1:seed": "wrangler d1 execute shopmallx-db --file=./migrations/0002_seed.sql --remote --yes",
+    "d1:export": "node scripts/export-d1-seed.mjs > migrations/0002_seed.sql",
+    "deploy": "npm run build:cf && wrangler pages deploy .vercel/output/static --project-name=shopmallx --commit-dirty=true --branch=main",
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/adapter-d1": "^6.19.3",
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "next": "14.2.18",
@@ -23,14 +29,17 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "@cloudflare/workers-types": "^5.20260921.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@types/bcryptjs": "^2.4.6",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
-    "prisma": "^5.22.0",
+    "prisma": "^6.19.3",
     "tailwindcss": "^3.4.15",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.135.0"
   }
 }

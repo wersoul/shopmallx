@@ -1,0 +1,12 @@
+name = "shopmallx"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shopmallx-db"
+database_id = "cc658e57-35aa-47b3-97fd-9316e38c78a4"
+
+# Secrets — set with `wrangler pages secret put NAME`
+# JWT_SECRET, DATABASE_URL (for local Prisma migrate)

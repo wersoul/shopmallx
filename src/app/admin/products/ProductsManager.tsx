@@ -15,7 +15,7 @@ export default function ProductsManager({ products: initialProducts, categories 
     const url = isNew ? '/api/admin/products' : `/api/admin/products/${data.id}`;
     const method = isNew ? 'POST' : 'PUT';
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) {
       setEditing(null); setCreating(false);
       if (isNew) setProducts([r.product, ...products]);

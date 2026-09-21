@@ -1,0 +1,131 @@
+-- Shopmallx D1 schema (Cloudflare D1 / SQLite compatible)
+
+CREATE TABLE IF NOT EXISTS "User" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "email" TEXT NOT NULL UNIQUE,
+  "password" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "phone" TEXT,
+  "role" TEXT NOT NULL DEFAULT 'customer',
+  "address" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS "User_email_idx" ON "User"("email");
+
+CREATE TABLE IF NOT EXISTS "Category" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "name" TEXT NOT NULL,
+  "slug" TEXT NOT NULL UNIQUE,
+  "description" TEXT,
+  "image" TEXT,
+  "parentId" TEXT,
+  "sortOrder" INTEGER NOT NULL DEFAULT 0,
+  "isActive" INTEGER NOT NULL DEFAULT 1,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS "Product" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "name" TEXT NOT NULL,
+  "slug" TEXT NOT NULL UNIQUE,
+  "description" TEXT,
+  "price" REAL NOT NULL DEFAULT 0,
+  "salePrice" REAL,
+  "stock" INTEGER NOT NULL DEFAULT 0,
+  "images" TEXT NOT NULL DEFAULT '[]',
+  "brand" TEXT,
+  "isActive" INTEGER NOT NULL DEFAULT 1,
+  "isFeatured" INTEGER NOT NULL DEFAULT 0,
+  "isNew" INTEGER NOT NULL DEFAULT 0,
+  "categoryId" TEXT NOT NULL,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS "Product_categoryId_idx" ON "Product"("categoryId");
+CREATE INDEX IF NOT EXISTS "Product_slug_idx" ON "Product"("slug");
+
+CREATE TABLE IF NOT EXISTS "Order" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "orderNumber" TEXT NOT NULL UNIQUE,
+  "userId" TEXT,
+  "customerName" TEXT NOT NULL,
+  "customerEmail" TEXT,
+  "customerPhone" TEXT NOT NULL,
+  "address" TEXT NOT NULL,
+  "province" TEXT,
+  "total" REAL NOT NULL,
+  "shipping" REAL NOT NULL DEFAULT 0,
+  "discount" REAL NOT NULL DEFAULT 0,
+  "status" TEXT NOT NULL DEFAULT 'pending',
+  "paymentMethod" TEXT,
+  "paymentSlip" TEXT,
+  "note" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS "OrderItem" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "orderId" TEXT NOT NULL,
+  "productId" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "price" REAL NOT NULL,
+  "quantity" INTEGER NOT NULL,
+  "subtotal" REAL NOT NULL,
+  FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE,
+  FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+
+CREATE TABLE IF NOT EXISTS "CartItem" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "userId" TEXT NOT NULL,
+  "productId" TEXT NOT NULL,
+  "quantity" INTEGER NOT NULL DEFAULT 1,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
+  FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "Banner" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "title" TEXT NOT NULL,
+  "subtitle" TEXT,
+  "image" TEXT NOT NULL,
+  "link" TEXT,
+  "position" TEXT NOT NULL DEFAULT 'hero',
+  "sortOrder" INTEGER NOT NULL DEFAULT 0,
+  "isActive" INTEGER NOT NULL DEFAULT 1,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "Promotion" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "title" TEXT NOT NULL,
+  "description" TEXT,
+  "image" TEXT,
+  "badge" TEXT,
+  "link" TEXT,
+  "sortOrder" INTEGER NOT NULL DEFAULT 0,
+  "isActive" INTEGER NOT NULL DEFAULT 1,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "Content" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "key" TEXT NOT NULL UNIQUE,
+  "title" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS "Setting" (
+  "id" TEXT PRIMARY KEY NOT NULL,
+  "key" TEXT NOT NULL UNIQUE,
+  "value" TEXT NOT NULL,
+  "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

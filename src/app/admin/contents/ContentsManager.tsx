@@ -13,7 +13,7 @@ export default function ContentsManager({ contents }: { contents: any[] }) {
     const res = await fetch('/api/admin/contents', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
     });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) {
       setEditing(null);
       setList(list.map(c => c.key === r.content.key ? r.content : c).concat(list.find(c => c.key === r.content.key) ? [] : [r.content]));

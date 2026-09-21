@@ -1,0 +1,4 @@
+-- Replace user passwords with PBKDF2 hashes (Edge-compatible)
+DELETE FROM "User" WHERE email IN ('admin@shopmallx.com', 'demo@shopmallx.com');
+INSERT INTO "User" ("id", "email", "password", "name", "phone", "role", "address", "createdAt", "updatedAt") VALUES ('admin-shop-001', 'admin@shopmallx.com', 'pbkdf2$100000$3037153ea2e04fba66ef0713ca6d878e$ee1d89d8e883b26b8ab5c250f644e2db502d7803ff68082d2139065c07260059', 'ผู้ดูแลระบบ', '093-000-0000', 'admin', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO "User" ("id", "email", "password", "name", "phone", "role", "address", "createdAt", "updatedAt") VALUES ('demo-shop-001', 'demo@shopmallx.com', 'pbkdf2$100000$4778c59619302bb54c61c34f791b5ad3$185059814af0912b0e8a2f59ab418ede467fd2a30c781d5e4e6c15b5072c3da7', 'ลูกค้าทดสอบ', '081-111-1111', 'customer', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

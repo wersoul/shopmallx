@@ -12,7 +12,7 @@ export default function PromotionsManager({ promotions: initial }: { promotions:
     const res = await fetch(isNew ? '/api/admin/promotions' : `/api/admin/promotions/${data.id}`, {
       method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
     });
-    const r = await res.json();
+    const r = await res.json() as any;
     if (r.success) {
       setEditing(null); setCreating(false);
       if (isNew) setItems([...items, r.promotion]); else setItems(items.map(i => i.id === r.promotion.id ? r.promotion : i));

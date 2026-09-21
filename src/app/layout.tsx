@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 import { getSettings } from '@/lib/settings';
 import SiteShell from '@/components/SiteShell';
 
+// Force Edge runtime for Cloudflare Pages compatibility
+export const runtime = 'edge';
+
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSettings();
   return {
