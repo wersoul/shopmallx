@@ -1,10 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { FiPhone, FiMail, FiMapPin } from 'react-icons/fi';
 import ContactForm from './ContactForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContactPage() {
+  const prisma = await ensurePrisma();
   const s = await prisma.setting.findMany();
   const set: any = {};
   s.forEach(x => set[x.key] = x.value);

@@ -1,8 +1,9 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContentPage({ params }: { params: { key: string } }) {
+  const prisma = await ensurePrisma();
   const content = await prisma.content.findUnique({ where: { key: params.key } });
   if (!content) {
     return (

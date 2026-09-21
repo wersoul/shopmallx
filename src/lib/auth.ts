@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { hashPassword, verifyPassword } from './password';
-import { prisma } from './prisma';
+import { prisma, ensurePrisma } from './prisma';
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'shopmallx-secret');
 const COOKIE_NAME = 'shopmallx_token';
@@ -24,6 +24,7 @@ export async function verifyToken(token: string) {
 }
 
 export async function getCurrentUser() {
+  const prisma = await ensurePrisma();
   const c = cookies();
   const token = c.get(COOKIE_NAME)?.value;
   if (!token) return null;
@@ -40,12 +41,10 @@ export async function requireAdmin() {
 }
 
 export async function login(email: string, password: string) {
-  console.log('[auth.login] start', email);
+  const prisma = await ensurePrisma();
   const user = await prisma.user.findUnique({ where: { email } });
-  console.log('[auth.login] user found:', !!user);
   if (!user) return null;
   const ok = await verifyPassword(password, user.password);
-  console.log('[auth.login] pw ok:', ok);
   if (!ok) return null;
   const token = await signToken({ userId: user.id, role: user.role });
   cookies().set(COOKIE_NAME, token, {
@@ -59,6 +58,7 @@ export async function logout() {
 }
 
 export async function register(data: { email: string; password: string; name: string; phone?: string }) {
+  const prisma = await ensurePrisma();
   const exists = await prisma.user.findUnique({ where: { email: data.email } });
   if (exists) throw new Error('Email นี้ถูกใช้งานแล้ว');
   const hash = await hashPassword(data.password);

@@ -1,60 +1,45 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaD1 } from '@prisma/adapter-d1';
 
-const globalForPrisma = global as unknown as {
-  prisma?: PrismaClient;
-  cfModule?: Promise<typeof import('@cloudflare/next-on-pages')> | null;
-  initPromise?: Promise<void>;
-};
-
-function getCfModule(): Promise<typeof import('@cloudflare/next-on-pages')> | null {
-  if (globalForPrisma.cfModule !== undefined) return globalForPrisma.cfModule;
-  try {
-    const dyn = new Function('m', 'return import(m)') as (m: string) => Promise<any>;
-    globalForPrisma.cfModule = dyn('@cloudflare/next-on-pages');
-    return globalForPrisma.cfModule;
-  } catch {
-    globalForPrisma.cfModule = null;
-    return null;
-  }
-}
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
 if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = new PrismaClient();
 }
 
-// MUST be awaited before any DB query on Cloudflare. Returns the real
-// PrismaClient instance — uses D1 adapter when running on Cloudflare Pages.
-export async function ensurePrisma(): Promise<PrismaClient> {
-  if (globalForPrisma.prisma && (globalForPrisma.prisma as any)._d1Bound) {
-    return globalForPrisma.prisma;
-  }
-  if (globalForPrisma.initPromise) {
-    await globalForPrisma.initPromise;
-    return globalForPrisma.prisma!;
-  }
-  globalForPrisma.initPromise = (async () => {
-    const mod = await getCfModule();
-    if (mod) {
-      try {
-        const ctx = mod.getOptionalRequestContext();
-        const d1 = ctx?.env?.DB;
-        if (d1) {
-          const adapter = new PrismaD1(d1);
-          const client = new PrismaClient({ adapter });
-          (client as any)._d1Bound = true;
-          globalForPrisma.prisma = client;
-        }
-      } catch {
-        // not on CF
-      }
+// On Cloudflare Pages, the request context is set on globalThis under a known
+// Symbol right before each handler runs. We can grab it directly without
+// importing @cloudflare/next-on-pages (which has 'server-only').
+// Symbol used by next-on-pages: Symbol.for("__cloudflare-request-context__")
+const CF_CONTEXT_SYMBOL = Symbol.for('__cloudflare-request-context__') as symbol;
+
+function getD1FromContext(): any | undefined {
+  try {
+    const ctx = (globalThis as any)[CF_CONTEXT_SYMBOL];
+    if (ctx && typeof ctx === 'object') {
+      return ctx?.env?.DB;
     }
-  })();
-  await globalForPrisma.initPromise;
+  } catch {
+    // not on CF
+  }
+  return undefined;
+}
+
+// Upgrade the singleton to a D1-bound client if running on Cloudflare.
+// Returns the live PrismaClient.
+export async function ensurePrisma(): Promise<PrismaClient> {
+  const d1 = getD1FromContext();
+  if (d1) {
+    const adapter = new PrismaD1(d1);
+    const client = new PrismaClient({ adapter });
+    (client as any)._d1Bound = true;
+    globalForPrisma.prisma = client;
+    return client;
+  }
   return globalForPrisma.prisma!;
 }
 
-// Legacy export — returns the plain (local SQLite) client on first import.
-// On Cloudflare this should NOT be used directly; call `await ensurePrisma()`
-// first to get the D1-bound client.
+// Legacy export. Keep it returning the local client so that existing
+// `prisma.user.findMany(...)` calls continue to work in local dev. On
+// Cloudflare, call `await ensurePrisma()` first to get the D1-bound client.
 export const prisma: PrismaClient = globalForPrisma.prisma!;

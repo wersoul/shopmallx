@@ -1,9 +1,10 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SuccessPage({ searchParams }: { searchParams: { id?: string } }) {
+  const prisma = await ensurePrisma();
   const order = searchParams.id ? await prisma.order.findUnique({
     where: { id: searchParams.id },
     include: { items: true }

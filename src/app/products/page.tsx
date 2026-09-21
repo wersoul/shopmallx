@@ -1,10 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import ProductCard from '@/components/ProductCard';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage({ searchParams }: { searchParams: { category?: string; q?: string } }) {
+  const prisma = await ensurePrisma();
   const cats = await prisma.category.findMany({ where: { parentId: null, isActive: true }, orderBy: { sortOrder: 'asc' } });
   const allSubs = await prisma.category.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } });
 

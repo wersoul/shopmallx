@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 
 export async function GET() {
+  const prisma = await ensurePrisma();
   const items = await prisma.setting.findMany();
   return NextResponse.json({ settings: items });
 }
 
 export async function PUT(req: NextRequest) {
+  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const data = await req.json() as any;
   const updates = [];

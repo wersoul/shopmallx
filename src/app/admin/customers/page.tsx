@@ -1,12 +1,16 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCustomersPage() {
+  const prisma = await ensurePrisma();
   const users = await prisma.user.findMany({
     orderBy: { createdAt: 'desc' },
-    select: { id: true, email: true, name: true, phone: true, role: true, address: true, createdAt: true, _count: { select: { orders: true } } }
+    select: { id: true, email: true, name: true, phone: true, role: true, address: true, createdAt: true }
   });
+  const orderCounts = await prisma.order.groupBy({ by: ['userId'], _count: { _all: true } });
+  const countMap: Record<string, number> = {};
+  for (const oc of orderCounts) if (oc.userId) countMap[oc.userId] = (oc as any)._count?._all ?? 0;
   return (
     <div>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3">
@@ -36,7 +40,7 @@ export default async function AdminCustomersPage() {
                     {u.role === 'admin' ? 'แอดมิน' : 'ลูกค้า'}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-center">{(u as any)._count?.orders || 0}</td>
+                <td className="px-3 py-2 text-center">{countMap[u.id] || 0}</td>
                 <td className="px-3 py-2 text-center text-xs">{new Date(u.createdAt).toLocaleDateString('th-TH')}</td>
               </tr>
             ))}

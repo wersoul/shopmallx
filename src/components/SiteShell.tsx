@@ -1,10 +1,11 @@
 import { getSettings } from '@/lib/settings';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
 export default async function SiteShell({ children }: { children: React.ReactNode }) {
+  const prisma = await ensurePrisma();
   const settings = await getSettings();
   const categories = await prisma.category.findMany({
     where: { parentId: null, isActive: true },

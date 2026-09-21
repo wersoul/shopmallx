@@ -1,10 +1,11 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { priceFormat } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
+  const prisma = await ensurePrisma();
   const [products, orders, users, totalRevenue] = await Promise.all([
     prisma.product.count(),
     prisma.order.count(),

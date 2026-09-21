@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 
 export async function GET() {
+  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const products = await prisma.product.findMany({ orderBy: { createdAt: 'desc' }, include: { category: true } });
   return NextResponse.json({ products });
 }
 
 export async function POST(req: NextRequest) {
+  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const data = await req.json() as any;
   const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');

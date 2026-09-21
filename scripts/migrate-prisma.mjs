@@ -1,15 +1,13 @@
-// Migration script: convert `import { prisma } from '@/lib/prisma'` usages
-// to `await ensurePrisma()` calls in server components / API routes.
+// Migration script: convert `prisma.X.Y(...)` calls to use ensurePrisma().
+// Only modifies files that already import prisma.
 //
-// Strategy:
-// 1. Find all files that import prisma.
-// 2. For server-side files (no 'use client'), replace `prisma.X.Y(...)` with
-//    `(await ensurePrisma()).X.Y(...)` and add `const prisma = await ensurePrisma();`
-//    at the top of each function that uses it.
-// 3. For client-side files, just swap the import to `ensurePrisma`.
+// Approach: for each server-side file (no 'use client') that imports prisma,
+//   - Replace `import { prisma } from '...'` with `import { prisma, ensurePrisma } from '...'`
+//   - At top of each async function that contains `db.X.Y(...)` (we set db = await ensurePrisma())
 //
-// To keep things safe, this script only does the import swap. The wrapping of
-// call sites is done by sed below in bash.
+// To make this safe, we ONLY prepend `const prisma = await ensurePrisma();` if
+// the function actually contains `prisma.`. We avoid touching async functions
+// that don't query the DB.
 
 import fs from 'fs';
 import path from 'path';
@@ -30,59 +28,116 @@ let count = 0;
 
 for (const f of files) {
   let src = fs.readFileSync(f, 'utf8');
-  if (!src.includes("from '@/lib/prisma'")) continue;
 
-  // Replace import statement
-  src = src.replace(
-    /import\s*\{\s*prisma\s*\}\s*from\s*'@\/lib\/prisma'\s*;/,
-    "import { ensurePrisma } from '@/lib/prisma';"
-  );
-  // For files that have BOTH prisma and other named exports, fall back to adding ensurePrisma
-  if (!src.includes('ensurePrisma')) {
-    src = src.replace(
-      /import\s*\{\s*([^}]+)\s*\}\s*from\s*'@\/lib\/prisma'\s*;/,
-      (m, names) => {
-        if (names.includes('ensurePrisma')) return m;
-        return `import { ${names.trim()}, ensurePrisma } from '@/lib/prisma';`;
-      }
-    );
-  }
+  // Match any of the import paths we use
+  const importRe = /import\s*\{\s*prisma\s*\}\s*from\s*('[^']+')\s*;/;
+  const m = src.match(importRe);
+  if (!m) continue;
 
-  // Skip 'use client' files — they can't use async top-level
+  // Replace the import to include ensurePrisma
+  src = src.replace(importRe, "import { prisma, ensurePrisma } from $1;");
+
+  // Skip 'use client' files
   if (/^\s*['"]use client['"]/.test(src)) {
     fs.writeFileSync(f, src);
     count++;
-    console.log(`  (client) ${f}`);
     continue;
   }
 
-  // Find every function/handler that calls prisma.* and prepend ensurePrisma().
-  // We do a simple regex-based pass:
-  //   1) Replace `prisma.` with `db.` everywhere
-  //   2) Insert `const db = await ensurePrisma();` at the top of any async function
-  //      (heuristic: lines starting with "export async function" / "async function")
-  src = src.replace(/\bprisma\./g, 'db.');
+  // Use a marker comment to find functions that contain `prisma.X.`
+  // and inject `const prisma = await ensurePrisma();` at their entry.
+  // We do this line-by-line to handle multi-line function declarations.
+  const lines = src.split('\n');
+  const out = [];
+  let i = 0;
 
-  // Insert into async function declarations
-  src = src.replace(
-    /(export\s+)?async\s+function\s+(\w+)\s*\([^)]*\)\s*\{/g,
-    (m, exp, name) => {
-      return `${exp || ''}async function ${name}(...) {\n  const db = await ensurePrisma();`;
+  function findOpenBrace(startIdx) {
+    // Scan forward from startIdx for the first `{` that opens the function body.
+    let depth = 0;
+    let seen = false;
+    for (let j = startIdx; j < lines.length; j++) {
+      for (const ch of lines[j]) {
+        if (ch === '{') {
+          if (!seen) { seen = true; return { line: j, col: lines[j].indexOf('{') + 1 }; }
+          depth++;
+        } else if (ch === '}') {
+          if (seen) {
+            depth--;
+            if (depth < 0) return { line: j, col: lines[j].indexOf('}') + 1 };
+          }
+        }
+      }
     }
-  );
-  // Insert into arrow functions: const x = async (...) => {  or  const x = async function (
-  src = src.replace(
-    /=\s*async\s*\([^)]*\)\s*=>\s*\{/g,
-    '= async (...) => {\n  const db = await ensurePrisma();'
-  );
-  src = src.replace(
-    /=\s*async\s+function\s*\([^)]*\)\s*\{/g,
-    '= async function (...) {\n  const db = await ensurePrisma();'
-  );
+    return null;
+  }
 
-  fs.writeFileSync(f, src);
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Match start of an async function (anywhere on line, possibly with export)
+    const asyncFnRe = /(export\s+default\s+)?async\s+function\s+(\w+)/;
+    const asyncArrowRe = /=\s*async\s*\(/;
+
+    let fnMatch = line.match(asyncFnRe);
+    let arrowMatch = line.match(asyncArrowRe);
+    let fnName = null;
+    let insertAt = -1;
+
+    if (fnMatch) {
+      fnName = fnMatch[2];
+      // Find `{` possibly on next lines
+      let foundBrace = line.indexOf('{') >= 0 ? line.indexOf('{') : -1;
+      let braceLine = i;
+      if (foundBrace < 0) {
+        for (let j = i + 1; j < lines.length && j < i + 10; j++) {
+          if (lines[j].indexOf('{') >= 0) { braceLine = j; break; }
+        }
+      }
+      // Look ahead in next 30 lines — does this function use `prisma.` ?
+      let usesPrisma = false;
+      let braceCount = 0;
+      for (let j = braceLine; j < Math.min(lines.length, i + 80); j++) {
+        if (lines[j].includes('prisma.')) { usesPrisma = true; break; }
+        // crude brace counting
+        braceCount += (lines[j].match(/\{/g) || []).length - (lines[j].match(/\}/g) || []).length;
+        if (braceCount === 0 && j > braceLine) break;
+      }
+      if (usesPrisma) insertAt = braceLine + 1;
+    } else if (arrowMatch) {
+      // const x = async (req) => {
+      let braceLine = i;
+      for (let j = i; j < lines.length && j < i + 5; j++) {
+        if (lines[j].indexOf('{') >= 0) { braceLine = j; break; }
+      }
+      let usesPrisma = false;
+      let braceCount = 0;
+      for (let j = braceLine; j < Math.min(lines.length, i + 80); j++) {
+        if (lines[j].includes('prisma.')) { usesPrisma = true; break; }
+        braceCount += (lines[j].match(/\{/g) || []).length - (lines[j].match(/\}/g) || []).length;
+        if (braceCount === 0 && j > braceLine) break;
+      }
+      if (usesPrisma) insertAt = braceLine + 1;
+    }
+
+    if (insertAt > 0) {
+      // Insert at insertAt
+      // Determine indent: use 2 spaces
+      const stmt = '  const prisma = await ensurePrisma();';
+      // Avoid double-insertion if the same function already has the line just inside
+      if (lines[insertAt] && lines[insertAt].trim() === stmt.trim()) {
+        // already has it
+      } else {
+        lines.splice(insertAt, 0, stmt);
+      }
+      i = insertAt + 2; // skip past insertion
+      continue;
+    }
+
+    i++;
+  }
+
+  fs.writeFileSync(f, lines.join('\n'));
   count++;
-  console.log(`  ${f}`);
 }
 
 console.log(`Migrated ${count} files.`);

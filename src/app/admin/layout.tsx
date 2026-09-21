@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import AdminSidebar from './AdminSidebar';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();

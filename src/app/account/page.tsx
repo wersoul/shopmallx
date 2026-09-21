@@ -1,11 +1,12 @@
 import { getCurrentUser } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
+  const prisma = await ensurePrisma();
   const user = await getCurrentUser();
   if (!user) redirect('/login?redirect=/account');
 

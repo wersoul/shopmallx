@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import BannerSlider from '@/components/BannerSlider';
 import ProductCard from '@/components/ProductCard';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
+  const prisma = await ensurePrisma();
   const [banners, sidebar, promotions, featured, newProducts, categories] = await Promise.all([
     prisma.banner.findMany({ where: { position: 'hero', isActive: true }, orderBy: { sortOrder: 'asc' } }),
     prisma.banner.findMany({ where: { position: 'sidebar', isActive: true }, orderBy: { sortOrder: 'asc' }, take: 2 }),

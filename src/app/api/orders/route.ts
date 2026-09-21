@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
+  const prisma = await ensurePrisma();
   const data = await req.json() as any;
   if (!data.items || data.items.length === 0) {
     return NextResponse.json({ error: 'ตะกร้าว่าง' }, { status: 400 });
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const prisma = await ensurePrisma();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (id) {

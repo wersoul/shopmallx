@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const data = await req.json() as any;
   const item = await prisma.promotion.update({ where: { id: params.id }, data });
@@ -10,6 +11,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const prisma = await ensurePrisma();
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   await prisma.promotion.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });

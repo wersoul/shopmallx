@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, ensurePrisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import AddToCart from './AddToCart';
@@ -7,6 +7,7 @@ import { priceFormat } from '@/lib/settings';
 export const dynamic = 'force-dynamic';
 
 export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
+  const prisma = await ensurePrisma();
   const product = await prisma.product.findUnique({
     where: { slug: params.slug },
     include: { category: true }
