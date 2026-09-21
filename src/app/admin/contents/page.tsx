@@ -4,11 +4,9 @@ import ContentsManager from './ContentsManager';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminContentsPage() {
-  try {
-    const prisma = await ensurePrisma();
-    const items = await prisma.content.findMany();
-    return <ContentsManager contents={items as any} />;
-  } catch (err: any) {
-    return <div className="p-6 text-red-600">Contents error: {String(err?.message || err)}</div>;
-  }
+  const prisma = await ensurePrisma();
+  const items = await prisma.content.findMany();
+  // Map to plain strings so Client Component never sees a Date.
+  const safe = (items as any[]).map(c => ({ id: c.id, key: c.key, title: c.title, body: c.body }));
+  return <ContentsManager contents={safe} />;
 }

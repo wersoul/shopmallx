@@ -13,7 +13,6 @@ if (!globalForPrisma.prisma) {
 // On Cloudflare Pages, the request context is set on globalThis under a known
 // Symbol right before each handler runs. We can grab it directly without
 // importing @cloudflare/next-on-pages (which has 'server-only').
-// Symbol used by next-on-pages: Symbol.for("__cloudflare-request-context__")
 const CF_CONTEXT_SYMBOL = Symbol.for('__cloudflare-request-context__') as symbol;
 
 function getD1FromContext(): any | undefined {
@@ -28,33 +27,77 @@ function getD1FromContext(): any | undefined {
   return undefined;
 }
 
-function reviveDates(obj: any): any {
-  // Recursively walk result and convert any string field that looks like ISO
-  // date back into Date so React components (and `new Date(x)`) work as expected.
-  if (obj == null) return obj;
-  if (Array.isArray(obj)) return obj.map(reviveDates);
-  if (typeof obj === 'string') {
-    // Quick ISO 8601 check
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(obj)) {
-      const d = new Date(obj);
-      if (!isNaN(d.getTime())) return d;
+/**
+ * Recursively convert Date objects into ISO strings so they can be safely
+ * passed from Server Component → Client Component (RSC serialization only
+ * supports plain serializable values). Also revive ISO date strings back
+ * into Date so server templates can keep using `new Date(x)` etc.
+ */
+export function serialize<T = any>(input: T): T {
+  if (input == null) return input;
+  if (input instanceof Date) return input.toISOString() as any;
+  if (Array.isArray(input)) return input.map(serialize) as any;
+  if (typeof input === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(input)) {
+      const d = new Date(input);
+      if (!isNaN(d.getTime())) return d as any;
     }
-    return obj;
+    return input;
   }
-  if (typeof obj === 'object') {
+  if (typeof input === 'object') {
     const out: any = {};
-    for (const k of Object.keys(obj)) out[k] = reviveDates(obj[k]);
+    for (const k of Object.keys(input as object)) out[k] = serialize((input as any)[k]);
     return out;
   }
-  return obj;
+  return input;
 }
 
+/**
+ * Wrap the Prisma client with a Proxy that auto-serializes every query
+ * result so Date → ISO string before it leaves the server. This way
+ * server pages don't have to manually call `serialize()`.
+ *
+ * Important: We only intercept `get` (property access), not `has`/`apply`/etc.
+ * Prisma uses internal `Object.hasOwnProperty.call(...)` checks which would
+ * trip if we returned non-objects. We return a Promise of serialized data
+ * from each method call.
+ */
 function wrapClient(client: PrismaClient): PrismaClient {
-  // NO-OP: keeping the function for future use. Date reviver happens via
-  // the `reviveDates` helper which is called by individual page modules
-  // when needed. Wrapping the client with a Proxy breaks Prisma's internal
-  // checks (Object.get on the target).
-  return client;
+  return new Proxy(client as any, {
+    get(target, prop, receiver) {
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof prop === 'symbol' || typeof val !== 'function') {
+        return val;
+      }
+      // If the value is a model namespace (e.g. target.user, target.product),
+      // wrap each method inside it.
+      if (/^[a-z]/.test(String(prop)) && !String(prop).startsWith('$') && !String(prop).startsWith('_')) {
+        // Heuristic: model accessors are camelCase and not $-prefixed.
+        // Don't wrap non-model methods like $connect/$disconnect/$queryRaw.
+        // Check by trying to detect this is a model proxy by looking for findMany.
+        if (typeof (val as any).findMany === 'function' || typeof (val as any).create === 'function') {
+          return new Proxy(val, {
+            get(modelTarget, modelProp, modelReceiver) {
+              const method = Reflect.get(modelTarget, modelProp, modelReceiver);
+              if (typeof method !== 'function') return method;
+              // Wrap method calls so any returned object is serialized.
+              return new Proxy(method, {
+                apply(fn, thisArg, args) {
+                  const out = Reflect.apply(fn, thisArg, args);
+                  if (out && typeof (out as any).then === 'function') {
+                    return (out as Promise<any>).then(serialize);
+                  }
+                  return serialize(out);
+                }
+              });
+            }
+          });
+        }
+      }
+      // Top-level methods like $transaction, $connect, etc. — just return as-is.
+      return val;
+    }
+  });
 }
 
 // Upgrade the singleton to a D1-bound client if running on Cloudflare.

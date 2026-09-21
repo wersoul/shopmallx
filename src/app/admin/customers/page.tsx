@@ -9,9 +9,9 @@ export default async function AdminCustomersPage() {
       orderBy: { createdAt: 'desc' },
       select: { id: true, email: true, name: true, phone: true, role: true, address: true, createdAt: true }
     });
-    const orderCounts = await prisma.order.groupBy({ by: ['userId'], _count: { _all: true } });
+    const orderCounts = await prisma.order.findMany({ select: { userId: true } });
     const countMap: Record<string, number> = {};
-    for (const oc of orderCounts) if (oc.userId) countMap[oc.userId] = (oc as any)._count?._all ?? 0;
+    for (const oc of orderCounts) if (oc.userId) countMap[oc.userId] = (countMap[oc.userId] || 0) + 1;
     return (
     <div>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3">
