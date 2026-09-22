@@ -10,7 +10,7 @@ export async function signToken(payload: any) {
   return await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime('30m')
     .sign(SECRET);
 }
 
@@ -49,7 +49,7 @@ export async function login(email: string, password: string) {
   if (!ok) return null;
   const token = await signToken({ userId: user.id, role: user.role });
   cookies().set(COOKIE_NAME, token, {
-    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
+    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 30
   });
   return user;
 }
@@ -69,7 +69,7 @@ export async function register(data: { email: string; password: string; name: st
   );
   const token = await signToken({ userId: id, role: 'customer' });
   cookies().set(COOKIE_NAME, token, {
-    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 7
+    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 30
   });
   return { id, email: data.email, name: data.name, role: 'customer' };
 }

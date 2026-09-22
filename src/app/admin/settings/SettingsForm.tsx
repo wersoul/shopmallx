@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { FiUploadCloud, FiTrash2 } from 'react-icons/fi';
 
 const groups = [
   { title: 'ข้อมูลทั่วไป', keys: ['site_name', 'site_tagline', 'logo_text'] },
@@ -12,6 +13,8 @@ const labels: any = {
   phone: 'เบอร์โทร', email: 'อีเมล', address: 'ที่อยู่', line_id: 'Line ID', facebook: 'Facebook URL', youtube: 'YouTube URL',
   bank_name: 'ชื่อธนาคาร', bank_account: 'เลขที่บัญชี', bank_holder: 'ชื่อบัญชี', shipping_fee: 'ค่าจัดส่ง (บาท)', free_shipping_min: 'ส่งฟรีเมื่อซื้อครบ (บาท)'
 };
+
+const LOGO_MAX_BYTES = 5 * 1024 * 1024;
 
 const COLOR_PRESETS = [
   '#ff2d2d', // red (default)
@@ -33,6 +36,14 @@ export default function SettingsForm({ settings }: { settings: any[] }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Logo upload state — separate from the generic save because it goes via
+  // /api/admin/logo which writes to R2.
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoProgress, setLogoProgress] = useState('');
+  const [logoError, setLogoError] = useState('');
+  const logoUrl: string = (form.logo_url || '').trim();
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setSaved(false);
@@ -46,6 +57,64 @@ export default function SettingsForm({ settings }: { settings: any[] }) {
     setSaving(false);
   };
 
+  const onPickLogo = () => logoInputRef.current?.click();
+
+  const onLogoFile = async (file: File | null) => {
+    if (!file) return;
+    setLogoError('');
+    if (!file.type.startsWith('image/')) {
+      setLogoError('ต้องเป็นไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setLogoError('ไฟล์ใหญ่เกิน 5MB');
+      return;
+    }
+    setLogoUploading(true);
+    setLogoProgress(`กำลังอัปโหลด ${file.name}...`);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/logo', { method: 'POST', body: fd });
+      const r = await res.json() as any;
+      if (!res.ok || !r.success) {
+        setLogoError(r.error || 'อัปโหลดไม่สำเร็จ');
+        return;
+      }
+      setForm(f => ({ ...f, logo_url: r.url }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setLogoError('อัปโหลดล้มเหลว: ' + (e?.message || 'network error'));
+    } finally {
+      setLogoUploading(false);
+      setLogoProgress('');
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const removeLogo = async () => {
+    if (!confirm('ลบโลโก้ร้านค้าออกจาก R2 bucket และตั้งค่าเว็บไซต์?')) return;
+    setLogoUploading(true);
+    setLogoError('');
+    try {
+      const res = await fetch('/api/admin/logo', { method: 'DELETE' });
+      const r = await res.json() as any;
+      if (!res.ok || !r.success) {
+        setLogoError(r.error || 'ลบไม่สำเร็จ');
+        return;
+      }
+      setForm(f => {
+        const { logo_url: _, ...rest } = f;
+        return rest;
+      });
+    } catch (e: any) {
+      setLogoError('ลบไม่สำเร็จ: ' + (e?.message || 'network error'));
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
   return (
     <form onSubmit={save}>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3 flex items-center justify-between">
@@ -56,6 +125,48 @@ export default function SettingsForm({ settings }: { settings: any[] }) {
         <button disabled={saving} className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2 rounded font-semibold">
           {saving ? 'กำลังบันทึก...' : saved ? '✓ บันทึกแล้ว' : 'บันทึกทั้งหมด'}
         </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-card p-4 mb-3">
+        <h2 className="font-bold mb-3 text-brand-600">🖼 โลโก้ร้านค้า (R2 bucket)</h2>
+        <div className="flex flex-col md:flex-row gap-4 items-start">
+          <div className="w-40 h-40 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+            {logoUrl ? (
+              <img src={logoUrl} alt="logo" className="w-full h-full object-contain" />
+            ) : (
+              <div className="text-center text-gray-400 text-xs px-2">ยังไม่มีโลโก้<br/>แนะนำ PNG/SVG ใส</div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap gap-2 mb-2">
+              <button
+                type="button"
+                disabled={logoUploading}
+                onClick={onPickLogo}
+                className="flex items-center gap-1 px-3 py-2 border-2 border-dashed border-brand-400 text-brand-600 rounded hover:bg-brand-50 text-sm disabled:opacity-50"
+              >
+                <FiUploadCloud /> {logoUploading ? (logoProgress || 'กำลังอัปโหลด...') : (logoUrl ? 'เปลี่ยนโลโก้' : 'อัปโหลดโลโก้')}
+              </button>
+              {logoUrl && (
+                <button
+                  type="button"
+                  disabled={logoUploading}
+                  onClick={removeLogo}
+                  className="flex items-center gap-1 px-3 py-2 border border-red-300 text-red-600 rounded hover:bg-red-50 text-sm disabled:opacity-50"
+                >
+                  <FiTrash2 /> ลบโลโก้
+                </button>
+              )}
+            </div>
+            {logoUrl && (
+              <div className="text-xs text-gray-500 break-all mb-1">
+                URL: <a href={logoUrl} target="_blank" rel="noreferrer" className="text-brand-600 underline">{logoUrl}</a>
+              </div>
+            )}
+            {logoError && <div className="text-xs text-red-600 mb-1">{logoError}</div>}
+            <p className="text-xs text-gray-500">รองรับไฟล์รูปภาพ (jpg/png/webp/svg/avif) ขนาดไม่เกิน 5MB จะถูกเก็บใน R2 folder <code>branding/</code> และใช้แสดงบนหน้าเว็บทันที</p>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-card p-4 mb-3">
@@ -110,6 +221,14 @@ export default function SettingsForm({ settings }: { settings: any[] }) {
           </div>
         </div>
       ))}
+
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={e => onLogoFile(e.target.files?.[0] || null)}
+        className="hidden"
+      />
     </form>
   );
 }

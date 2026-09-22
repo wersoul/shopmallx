@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { paletteFromHex } from '@/lib/color';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import AuthTimeout from '@/components/AuthTimeout';
 
 export default async function SiteShell({ children }: { children: React.ReactNode }) {
   const settings = await getSettings();
@@ -28,6 +29,7 @@ export default async function SiteShell({ children }: { children: React.ReactNod
     <>
       {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
       <Header settings={settings} categories={categories} user={userPlain} />
+      <AuthTimeout loggedIn={!!userPlain} />
       <main className="flex-1">{children}</main>
       <Footer settings={settings} />
     </>

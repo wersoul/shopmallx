@@ -1,5 +1,6 @@
 import { d1All } from '@/lib/d1';
 import ProductCard from '@/components/ProductCard';
+import CategorySidebar from '@/components/CategorySidebar';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -73,21 +74,8 @@ export default async function ProductsPage({
     binds
   );
 
-  // Sidebar links: clicking the parent shows all products under it AND any
-  // sub-categories; clicking a sub shows only that sub's products.
-  const linkFor = (parentSlug: string, subSlug?: string) => {
-    const sp = new URLSearchParams();
-    sp.set('category', parentSlug);
-    if (subSlug) sp.set('subcategory', subSlug);
-    return `/products?${sp.toString()}`;
-  };
-
-  const isActiveParent = (p: any) =>
-    activeCat?.id === p.id && !activeSub;
-  const isActiveSub = (s: any) =>
-    activeSub?.id === s.id ||
-    // also highlight when the sub is being shown via ?category (legacy)
-    (!activeSub && activeCat?.id === s.id);
+  // Sidebar links and active-state helpers moved into <CategorySidebar/>
+  // (client component) so we can drive collapse/expand from the URL.
 
   return (
     <div className="max-w-7xl mx-auto px-3 py-4">
@@ -99,61 +87,15 @@ export default async function ProductsPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Sidebar */}
-        <aside className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-card p-4 sticky top-32">
-            <h3 className="font-bold mb-3 text-gray-800">หมวดหมู่</h3>
-            <ul className="space-y-1 text-sm">
-              <li>
-                <Link
-                  href="/products"
-                  className={`block py-1.5 px-2 rounded ${!searchParams.category && !searchParams.subcategory ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-gray-50'}`}
-                >
-                  ทั้งหมด
-                </Link>
-              </li>
-              {parents.map(p => {
-                const subs = childrenByParent[p.id] || [];
-                // Auto-expand the sub-list whenever the current filter points
-                // at this parent, so the user can drill down without an
-                // extra click.
-                const showSubs = subs.length > 0 && (isActiveParent(p) || activeCat?.id === p.id);
-                return (
-                  <li key={p.id}>
-                    <Link
-                      href={linkFor(p.slug)}
-                      className={`block py-1.5 px-2 rounded ${isActiveParent(p) ? 'bg-brand-50 text-brand-600 font-semibold' : 'hover:bg-gray-50'}`}
-                    >
-                      {p.name}
-                    </Link>
-                    {showSubs && (
-                      <ul className="ml-3 mt-1 border-l border-gray-200 pl-2 space-y-1">
-                        <li>
-                          <Link
-                            href={linkFor(p.slug)}
-                            className={`block py-1 px-2 rounded text-xs ${isActiveParent(p) && !activeSub ? 'text-brand-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-                          >
-                            ทั้งหมดใน{p.name}
-                          </Link>
-                        </li>
-                        {subs.map(s => (
-                          <li key={s.id}>
-                            <Link
-                              href={linkFor(p.slug, s.slug)}
-                              className={`block py-1 px-2 rounded text-xs ${isActiveSub(s) ? 'bg-brand-50 text-brand-600 font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
-                            >
-                              {s.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </aside>
+        {/* Sidebar (collapsible per parent) */}
+        <CategorySidebar
+          parents={parents}
+          childrenByParent={childrenByParent}
+          activeCategoryId={activeCat?.id ?? null}
+          activeSubId={activeSub?.id ?? null}
+          searchCategory={searchParams.category}
+          searchSub={searchParams.subcategory}
+        />
 
         {/* Products */}
         <div className="lg:col-span-3">
@@ -176,7 +118,7 @@ export default async function ProductsPage({
               <div>ไม่พบสินค้า</div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               {products.map(p => <ProductCard key={p.id} product={p} />)}
             </div>
           )}

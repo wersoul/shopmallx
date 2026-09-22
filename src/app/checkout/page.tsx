@@ -8,7 +8,7 @@ export default function CheckoutPage() {
   const [items, setItems] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [user, setUser] = useState<any>(null);
-  const [form, setForm] = useState({ customerName: '', customerPhone: '', customerEmail: '', address: '', province: '', note: '', paymentMethod: 'transfer' });
+  const [form, setForm] = useState({ customerName: '', customerPhone: '', customerEmail: '', address: '', province: '', postalCode: '', note: '', paymentMethod: 'transfer' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -17,10 +17,24 @@ export default function CheckoutPage() {
     fetch('/api/auth/me').then(r => r.json()).then((u: any) => {
       if (u?.user) {
         setUser(u.user);
-        setForm(f => ({ ...f, customerName: u.user.name, customerPhone: u.user.phone || '', customerEmail: u.user.email, address: u.user.address || '', province: u.user.province || '' }));
+        setForm(f => ({
+          ...f,
+          customerName: u.user.name,
+          customerPhone: u.user.phone || '',
+          customerEmail: u.user.email,
+          address: u.user.address || '',
+          province: u.user.province || '',
+          postalCode: u.user.postalCode || ''
+        }));
       }
     });
   }, []);
+
+  // จัดการรหัสไปรษณีย์: ตัดเฉพาะตัวเลข จำกัด 5 หลัก
+  const onPostalChange = (v: string) => {
+    const digits = v.replace(/\D/g, '').slice(0, 5);
+    setForm(f => ({ ...f, postalCode: digits }));
+  };
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
   const freeMin = parseFloat(settings.free_shipping_min || '1000');
@@ -31,6 +45,10 @@ export default function CheckoutPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) return alert('ตะกร้าสินค้าว่าง');
+    // ตรวจรหัสไปรษณีย์ 5 หลัก เฉพาะกรณีที่กรอกมา (อนุญาตว่างได้)
+    if (form.postalCode && !/^\d{5}$/.test(form.postalCode)) {
+      return alert('รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก');
+    }
     setSubmitting(true);
     const res = await fetch('/api/orders', {
       method: 'POST',
@@ -69,7 +87,16 @@ export default function CheckoutPage() {
               <input required placeholder="เบอร์โทร *" value={form.customerPhone} onChange={e => setForm({ ...form, customerPhone: e.target.value })} className="border rounded px-3 py-2" />
               <input type="email" placeholder="อีเมล" value={form.customerEmail} onChange={e => setForm({ ...form, customerEmail: e.target.value })} className="border rounded px-3 py-2 md:col-span-2" />
               <input required placeholder="ที่อยู่จัดส่ง *" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="border rounded px-3 py-2 md:col-span-2" />
-              <input placeholder="จังหวัด" value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} className="border rounded px-3 py-2 md:col-span-2" />
+              <input placeholder="จังหวัด" value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} className="border rounded px-3 py-2" />
+              <input
+                placeholder="รหัสไปรษณีย์ (5 หลัก)"
+                value={form.postalCode}
+                onChange={e => onPostalChange(e.target.value)}
+                inputMode="numeric"
+                pattern="\d{5}"
+                maxLength={5}
+                className="border rounded px-3 py-2"
+              />
               <textarea placeholder="หมายเหตุ" value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} className="border rounded px-3 py-2 md:col-span-2" rows={2} />
             </div>
           </div>

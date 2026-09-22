@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FiSearch, FiUser, FiShoppingCart, FiMenu, FiX, FiLogOut, FiPackage } from 'react-icons/fi';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
@@ -16,6 +16,44 @@ export default function Header({ settings, categories, user }: {
   const [open, setOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+
+  // Hover-driven state — small delay so the user can reach the dropdown without
+  // it collapsing mid-movement. Outside-click closes immediately.
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const [hovering, setHovering] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => { setHovering(false); setUserMenu(false); }, 180);
+  };
+  const openMenu = () => { cancelClose(); setHovering(true); setUserMenu(true); };
+
+  // Close on outside click / Escape
+  useEffect(() => {
+    if (!userMenu) return;
+    const onDoc = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenu(false);
+        setHovering(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setUserMenu(false); setHovering(false); }
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [userMenu]);
+
+  // Close whenever the route changes so stale menus don't linger
+  useEffect(() => { setUserMenu(false); setHovering(false); }, [pathname]);
 
   useEffect(() => { setQ(params.get('q') || ''); }, [params]);
   useEffect(() => {
@@ -68,9 +106,17 @@ export default function Header({ settings, categories, user }: {
 
       <div className="max-w-7xl mx-auto px-3 py-3 flex items-center gap-3">
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md">
-            {(settings.logo_text || 'S').charAt(0)}
-          </div>
+          {settings.logo_url ? (
+            <img
+              src={settings.logo_url}
+              alt={settings.site_name || 'logo'}
+              className="h-10 w-auto max-w-[160px] object-contain"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-extrabold text-lg shadow-md">
+              {(settings.logo_text || 'S').charAt(0)}
+            </div>
+          )}
           <div className="hidden sm:block leading-tight">
             <div className="font-extrabold text-xl text-brand-600">{settings.logo_text || 'SHOPMALLX'}</div>
             <div className="text-[10px] text-gray-500 -mt-1">{settings.site_tagline}</div>
@@ -94,10 +140,29 @@ export default function Header({ settings, categories, user }: {
           </Link>
 
           {user ? (
-            <div className="relative">
-              <button onClick={() => setUserMenu(!userMenu)} className="p-2 rounded-full hover:bg-gray-100" aria-label="บัญชี"><FiUser className="text-xl" /></button>
-              {userMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg overflow-hidden">
+            <div
+              className="relative"
+              ref={userMenuRef}
+              onMouseEnter={openMenu}
+              onMouseLeave={scheduleClose}
+            >
+              <button
+                onClick={() => (userMenu ? setUserMenu(false) : openMenu())}
+                onFocus={openMenu}
+                aria-haspopup="menu"
+                aria-expanded={userMenu}
+                className={`p-2 rounded-full hover:bg-gray-100 ${userMenu || hovering ? 'bg-gray-100' : ''}`}
+                aria-label="บัญชี"
+              >
+                <FiUser className="text-xl" />
+              </button>
+              {(userMenu || hovering) && (
+                <div
+                  className="absolute right-0 mt-2 w-56 bg-white border rounded-lg shadow-lg overflow-hidden"
+                  role="menu"
+                  onMouseEnter={openMenu}
+                  onMouseLeave={scheduleClose}
+                >
                   <div className="px-4 py-3 border-b bg-gray-50">
                     <div className="font-semibold text-sm">{user.name}</div>
                     <div className="text-xs text-gray-500">{isAdmin ? 'ผู้ดูแลระบบ' : 'ลูกค้า'}</div>

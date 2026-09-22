@@ -82,7 +82,7 @@ export default async function HomePage() {
           <h2 className="text-xl font-bold text-gray-800">สินค้าแนะนำ</h2>
           <Link href="/products" className="text-brand-600 text-sm hover:underline">ดูทั้งหมด →</Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {featured.map(p => <ProductCard key={p.id} product={p} />)}
         </div>
       </div>
@@ -94,7 +94,7 @@ export default async function HomePage() {
             <h2 className="text-xl font-bold text-gray-800">สินค้ามาใหม่</h2>
             <Link href="/products" className="text-brand-600 text-sm hover:underline">ดูทั้งหมด →</Link>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {newProducts.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         </div>

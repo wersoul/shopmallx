@@ -21,11 +21,21 @@ export async function POST(req: NextRequest) {
   const id = genId();
   const now = new Date().toISOString();
 
+  // ตรวจรหัสไปรษณีย์: ถ้ากรอกมาต้องเป็นตัวเลข 5 หลัก
+  let postalCode: string | null = null;
+  if (data.postalCode) {
+    const pc = String(data.postalCode).trim();
+    if (!/^\d{5}$/.test(pc)) {
+      return NextResponse.json({ error: 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก' }, { status: 400 });
+    }
+    postalCode = pc;
+  }
+
   await d1Run(
     `INSERT INTO \`Order\`
-     (id, orderNumber, userId, customerName, customerEmail, customerPhone, address, province,
+     (id, orderNumber, userId, customerName, customerEmail, customerPhone, address, province, postalCode,
       total, shipping, discount, status, paymentMethod, note, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?, ?, ?)`,
     [
       id, orderNumber,
       data.userId || null,
@@ -34,6 +44,7 @@ export async function POST(req: NextRequest) {
       data.customerPhone,
       data.address,
       data.province || null,
+      postalCode,
       Number(data.total) || 0,
       Number(data.shipping) || 0,
       data.paymentMethod || null,
