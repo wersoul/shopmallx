@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import AddToCart from './AddToCart';
+import ProductGallery from './ProductGallery';
+import ProductCard from '@/components/ProductCard';
 import { priceFormat, getSeo, jsonLd, SEO_DEFAULTS } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
@@ -126,18 +128,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
 
       <div className="bg-white rounded-lg shadow-card overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-6 p-4 md:p-6">
         <div>
-          <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border">
-            <img src={images[0] || 'https://via.placeholder.com/600'} alt={product.name} className="w-full h-full object-cover" />
-          </div>
-          {images.length > 1 && (
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {images.map((src: string, i: number) => (
-                <div key={i} className="aspect-square rounded border overflow-hidden cursor-pointer hover:border-brand-500">
-                  <img src={src} alt={`${product.name} รูปที่ ${i + 1}`} className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
+          <ProductGallery images={images} name={product.name} />
         </div>
 
         <div>
@@ -168,20 +159,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
         <div className="mt-6">
           <h2 className="text-xl font-bold mb-3 text-gray-800">สินค้าที่เกี่ยวข้อง</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {related.map(p => {
-              const imgs = JSON.parse(p.images || '[]');
-              return (
-                <Link key={p.id} href={`/products/${p.slug}`} className="bg-white rounded-lg shadow-card hover:shadow-lg overflow-hidden border">
-                  <div className="aspect-square bg-gray-100">
-                    <img src={imgs[0]} alt={p.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="p-3">
-                    <div className="text-sm font-medium line-clamp-2 min-h-[40px]">{p.name}</div>
-                    <div className="mt-1 text-brand-600 font-bold">฿{priceFormat(p.salePrice || p.price)}</div>
-                  </div>
-                </Link>
-              );
-            })}
+            {related.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         </div>
       )}
