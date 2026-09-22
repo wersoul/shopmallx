@@ -11,5 +11,6 @@ prisma/dev.db-journal
 .vercel
 *.tsbuildinfo.wrangler/
 .vercel/
+.wrangler/
 .next/
 tsconfig.tsbuildinfo
