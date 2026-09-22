@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { d1All, d1Run } from '@/lib/d1';
+import { d1All, d1Run, setRequestOrigin } from '@/lib/d1';
 import { requireAdmin } from '@/lib/auth';
 import { uploadFile } from '@/lib/r2';
 
@@ -30,6 +30,7 @@ function nameFromFilename(filename: string) {
  *   - brand          — optional
  */
 export async function POST(req: NextRequest) {
+  try { setRequestOrigin(new URL(req.url).origin); } catch {}
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const form = await req.formData();
   const files = form.getAll('files') as File[];
@@ -47,7 +48,8 @@ export async function POST(req: NextRequest) {
   const created: any[] = [];
   const failed: any[] = [];
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
     let url = '';
     try {
       const up = await uploadFile(file, folder);
@@ -57,19 +59,23 @@ export async function POST(req: NextRequest) {
       continue;
     }
     try {
-      const name = nameFromFilename(file.name);
+      // Per-item overrides from the form, falling back to the shared defaults.
+      const customName = form.get(`name_${i}`) ? String(form.get(`name_${i}`) || '').trim() : '';
+      const customStock = form.get(`stock_${i}`) ? parseInt(String(form.get(`stock_${i}`))) : null;
+      const itemName = customName || nameFromFilename(file.name);
+      const itemStock = Number.isFinite(customStock as number) ? (customStock as number) : stock;
       const id = genId();
-      const slug = slugify(name) + '-' + id.slice(2, 8);
+      const slug = slugify(itemName) + '-' + id.slice(2, 8);
       await d1Run(
         `INSERT INTO Product
          (id, name, slug, description, price, salePrice, stock, images, brand,
           isActive, isFeatured, isNew, categoryId, subCategoryId, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, 1, ?, 1, ?, ?, ?, ?)`,
         [
-          id, name, slug,
+          id, itemName, slug,
           '',
           price,
-          stock,
+          itemStock,
           JSON.stringify([url]),
           brand,
           isFeatured ? 1 : 0,
@@ -78,7 +84,7 @@ export async function POST(req: NextRequest) {
           now, now
         ]
       );
-      created.push({ id, name, image: url });
+      created.push({ id, name: itemName, image: url, stock: itemStock });
     } catch (e: any) {
       failed.push({ name: file.name, error: 'บันทึกไม่สำเร็จ: ' + (e?.message || e) });
     }

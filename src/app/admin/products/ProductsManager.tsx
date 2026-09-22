@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiUploadCloud } from 'react-icons/fi';
 import { priceFormat } from '@/lib/settings';
 import ImageUploader from '@/components/ImageUploader';
 
@@ -61,9 +61,18 @@ export default function ProductsManager({ products: initialProducts, categories 
           <h1 className="text-2xl font-bold">📦 จัดการสินค้า</h1>
           <p className="text-sm text-gray-500">{products.length} รายการ</p>
         </div>
-        <button onClick={() => setCreating(true)} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded flex items-center gap-1 text-sm">
-          <FiPlus /> เพิ่มสินค้า
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/admin/products/bulk')}
+            className="bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 px-4 py-2 rounded flex items-center gap-1 text-sm font-medium"
+            title="สร้างสินค้าจำนวนมากจากรูปภาพ"
+          >
+            <FiUploadCloud /> สร้างสินค้าจำนวนมาก
+          </button>
+          <button onClick={() => setCreating(true)} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded flex items-center gap-1 text-sm">
+            <FiPlus /> เพิ่มสินค้า
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-card overflow-hidden">

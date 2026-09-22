@@ -46,7 +46,9 @@ export function getR2(): R2BucketLike | undefined {
 
 /**
  * Public base URL for R2 objects (configured as Pages secret R2_PUBLIC_BASE).
- * Falls back to /uploads/ proxy path so local dev still works without R2.
+ * Falls back to a self-referencing `/api/r2/` proxy when no public host
+ * is configured. The proxy route streams the object from R2 via the binding,
+ * so uploaded images still display even before you wire up a public hostname.
  */
 export function getR2PublicBase(): string {
   try {
@@ -55,7 +57,25 @@ export function getR2PublicBase(): string {
       return String(ctx.env.R2_PUBLIC_BASE).replace(/\/+$/, '');
     }
   } catch {}
+  // Fallback: build from the request's origin so URLs work both locally
+  // and in production. Stored in a global by the proxy route at request time.
+  try {
+    const o: string | undefined = (globalThis as any).__shopmallxRequestOrigin;
+    if (o) return `${o.replace(/\/+$/, '')}/api/r2`;
+  } catch {}
   return '';
+}
+
+/**
+ * The Next.js edge runtime makes the request URL available via the standard
+ * Request global in route handlers, but `r2.ts` runs in helpers that don't
+ * always have direct access. Each route should call `setRequestOrigin(url)`
+ * once at the top so the upload helper can build proxy URLs.
+ */
+export function setRequestOrigin(origin: string): void {
+  try {
+    (globalThis as any).__shopmallxRequestOrigin = String(origin || '').replace(/\/+$/, '');
+  } catch {}
 }
 
 /**

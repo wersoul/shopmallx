@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadFile } from '@/lib/r2';
 import { requireAdmin } from '@/lib/auth';
+import { setRequestOrigin } from '@/lib/d1';
 
 // Increase body size limit for image uploads — already configured in next.config.js
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
+  try { setRequestOrigin(new URL(req.url).origin); } catch {}
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const form = await req.formData();
   const folder = String(form.get('folder') || 'misc');

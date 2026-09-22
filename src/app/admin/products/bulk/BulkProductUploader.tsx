@@ -3,19 +3,25 @@ import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FiUploadCloud, FiArrowLeft, FiTrash2 } from 'react-icons/fi';
 
+type Item = { file: File; preview: string; name: string; stock: string };
+
+function nameFromFilename(filename: string): string {
+  const base = filename.replace(/\.[a-z0-9]+$/i, '');
+  return base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim() || filename;
+}
+
 export default function BulkProductUploader({ categories }: { categories: any[] }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [parentId, setParentId] = useState('');
   const [subCategoryId, setSubCategoryId] = useState('');
   const [price, setPrice] = useState('0');
-  const [stock, setStock] = useState('9999');
+  const [defaultStock, setDefaultStock] = useState('9999');
   const [brand, setBrand] = useState('');
   const [isFeatured, setIsFeatured] = useState(false);
-  const [files, setFiles] = useState([]);
-  const [previews, setPreviews] = useState([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);
 
   const memo = useMemo(() => {
     const ps = categories.filter((c: any) => !c.parentId);
@@ -26,26 +32,36 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
   const subOpts = memo.subOpts;
 
   const onPick = () => inputRef.current?.click();
-  const onFiles = (list) => {
+  const onFiles = (list: FileList | null) => {
     if (!list) return;
-    const arr = Array.from(list as FileList).filter((f) => (f as File).type.startsWith('image/'));
+    const arr = Array.from(list).filter((f) => f.type.startsWith('image/'));
     if (!arr.length) return alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-    setFiles((prev) => [...prev, ...arr]);
+    const newItems: Item[] = arr.map((f) => ({
+      file: f,
+      preview: '',
+      name: nameFromFilename(f.name),
+      stock: defaultStock || '9999'
+    }));
+    setItems((prev) => [...prev, ...newItems]);
     arr.forEach((f) => {
       const reader = new FileReader();
-      reader.onload = (e: any) => setPreviews((prev) => [...prev, String(e?.target?.result || '')]);
+      reader.onload = (e: any) => {
+        const url = String(e?.target?.result || '');
+        setItems((prev) => prev.map((it) => (it.file === f && !it.preview ? { ...it, preview: url } : it)));
+      };
       reader.readAsDataURL(f);
     });
   };
-  const removeAt = (i) => {
-    setFiles((prev) => prev.filter((_, idx) => idx !== i));
-    setPreviews((prev) => prev.filter((_, idx) => idx !== i));
-  };
-  const clearAll = () => { setFiles([]); setPreviews([]); };
+  const removeAt = (i: number) => setItems((prev) => prev.filter((_, idx) => idx !== i));
+  const updateItem = (i: number, patch: Partial<Item>) =>
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  const clearAll = () => setItems([]);
+  const applyStockToAll = () =>
+    setItems((prev) => prev.map((it) => ({ ...it, stock: defaultStock || '9999' })));
 
   const submit = async () => {
     if (!parentId) return alert('กรุณาเลือกหมวดหมู่หลัก');
-    if (!files.length) return alert('กรุณาเลือกรูปอย่างน้อย 1 รูป');
+    if (!items.length) return alert('กรุณาเลือกรูปอย่างน้อย 1 ภาพ');
     setSubmitting(true);
     setResult(null);
     try {
@@ -53,15 +69,18 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
       fd.append('categoryId', parentId);
       if (subCategoryId) fd.append('subCategoryId', subCategoryId);
       fd.append('price', price || '0');
-      fd.append('stock', stock || '9999');
       if (brand) fd.append('brand', brand);
       fd.append('isFeatured', isFeatured ? '1' : '0');
-      files.forEach((f) => fd.append('files', f));
+      items.forEach((it, i) => {
+        fd.append('files', it.file);
+        fd.append(`name_${i}`, it.name || nameFromFilename(it.file.name));
+        fd.append(`stock_${i}`, String(parseInt(it.stock) || 9999));
+      });
       const res = await fetch('/api/admin/products/bulk', { method: 'POST', body: fd });
       const r = await res.json() as any;
       if (!res.ok || !r.success) alert(r.error || 'อัพโหลดไม่สำเร็จ');
       else setResult(r);
-    } catch (e) {
+    } catch (e: any) {
       alert('อัพโหลดล้มเหลว: ' + (e?.message || e));
     } finally {
       setSubmitting(false);
@@ -73,7 +92,7 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
       <div className="bg-white rounded-lg shadow-card p-4 mb-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">🖼 เพิ่มสินค้าจำนวนมาก (อัพโหลดรูป)</h1>
-          <p className="text-sm text-gray-500">แต่ละรูปจะถูกสร้างเป็นสินค้า 1 รายการ ใช้ชื่อไฟล์เป็นชื่อสินค้า</p>
+          <p className="text-sm text-gray-500">แต่ละรูปจะถูกสร้างเป็นสินค้า 1 รายการ — แก้ไขชื่อ/สต๊อกได้ก่อนสร้าง</p>
         </div>
         <button onClick={() => router.push('/admin/products')} className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded text-sm flex items-center gap-1">
           <FiArrowLeft /> กลับ
@@ -97,14 +116,18 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
               {subOpts.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block mb-1 font-medium">ราคา</label>
-              <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} className="w-full border rounded px-3 py-2" />
-            </div>
-            <div>
-              <label className="block mb-1 font-medium">สต๊อก</label>
-              <input type="number" value={stock} onChange={e => setStock(e.target.value)} className="w-full border rounded px-3 py-2" />
+          <div>
+            <label className="block mb-1 font-medium">ราคา (บาท)</label>
+            <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} className="w-full border rounded px-3 py-2" />
+          </div>
+          <div>
+            <label className="block mb-1 font-medium">สต๊อกเริ่มต้น</label>
+            <div className="flex gap-1">
+              <input type="number" value={defaultStock} onChange={e => setDefaultStock(e.target.value)} className="w-full border rounded px-3 py-2" />
+              <button type="button" onClick={applyStockToAll} disabled={!items.length}
+                className="text-xs bg-gray-100 hover:bg-gray-200 px-2 rounded disabled:opacity-50 whitespace-nowrap">
+                ใช้กับทั้งหมด
+              </button>
             </div>
           </div>
           <div>
@@ -117,16 +140,17 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
           </label>
           <div className="border-t pt-3 text-xs text-gray-500">
             <p>• แต่ละรูป = 1 สินค้า</p>
-            <p>• สต๊อกเริ่มต้น = 9999</p>
+            <p>• แก้ไขชื่อ/สต๊อกต่อชิ้นได้ที่ตารางด้านขวา</p>
             <p>• สินค้าจะถูกตั้งเป็น &quot;มาใหม่&quot; อัตโนมัติ</p>
-            <p>• ชื่อสินค้าจะใช้ชื่อไฟล์ (ลบนามสกุล + แทนที่ _/- ด้วยช่องว่าง)</p>
+            <p>• ชื่อเริ่มต้นใช้ชื่อไฟล์ (ลบนามสกุล + แทนที่ _/- ด้วยช่องว่าง)</p>
           </div>
         </div>
-<div className="lg:col-span-2 bg-white rounded-lg shadow-card p-4">
+
+        <div className="lg:col-span-2 bg-white rounded-lg shadow-card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-brand-600">📷 รูปภาพ ({files.length})</h2>
+            <h2 className="font-bold text-brand-600">📷 รายการสินค้า ({items.length})</h2>
             <div className="flex gap-2">
-              {files.length > 0 && (
+              {items.length > 0 && (
                 <button onClick={clearAll} className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded">ลบทั้งหมด</button>
               )}
               <button onClick={onPick} className="bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
@@ -144,22 +168,45 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
             className="hidden"
           />
 
-          {!files.length ? (
+          {!items.length ? (
             <div onClick={onPick} className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50 transition">
               <FiUploadCloud className="text-4xl mx-auto mb-2 text-gray-400" />
               <p className="font-semibold text-gray-700">คลิกเพื่อเลือกรูป หรือลากมาวาง</p>
               <p className="text-xs text-gray-500 mt-1">รองรับ JPG / PNG / WebP — เลือกได้หลายไฟล์พร้อมกัน</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-96 overflow-auto">
-              {previews.map((p: string, i: number) => (
-                <div key={i} className="relative group">
-                  <img src={p} alt="" className="w-full aspect-square object-cover rounded border" />
-                  <button onClick={() => removeAt(i)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100">
-                    <FiTrash2 size={10} />
-                  </button>
-                  <div className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-[10px] px-1 py-0.5 rounded truncate">
-                    {files[i].name}
+            <div className="space-y-2 max-h-[60vh] overflow-auto">
+              {items.map((it, i) => (
+                <div key={i} className="flex gap-3 p-2 border rounded bg-gray-50 hover:bg-gray-100">
+                  <div className="w-20 h-20 flex-shrink-0 bg-gray-200 rounded overflow-hidden flex items-center justify-center">
+                    {it.preview ? (
+                      <img src={it.preview} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <FiUploadCloud className="text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-brand-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                      <input
+                        value={it.name}
+                        onChange={e => updateItem(i, { name: e.target.value })}
+                        placeholder="ชื่อสินค้า"
+                        className="flex-1 min-w-0 border rounded px-2 py-1 text-sm"
+                      />
+                      <input
+                        type="number"
+                        value={it.stock}
+                        onChange={e => updateItem(i, { stock: e.target.value })}
+                        placeholder="สต๊อก"
+                        className="w-20 border rounded px-2 py-1 text-sm flex-shrink-0"
+                        min={0}
+                      />
+                      <button onClick={() => removeAt(i)} className="text-red-500 hover:bg-red-50 p-1.5 rounded flex-shrink-0" title="ลบ">
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-gray-500 truncate pl-8">{it.file.name}</div>
                   </div>
                 </div>
               ))}
@@ -168,12 +215,12 @@ export default function BulkProductUploader({ categories }: { categories: any[] 
 
           <div className="mt-4 pt-4 border-t flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              พร้อมสร้าง <span className="font-bold text-brand-600">{files.length}</span> สินค้า
+              พร้อมสร้าง <span className="font-bold text-brand-600">{items.length}</span> สินค้า
             </div>
-            <button disabled={submitting || !files.length || !parentId}
+            <button disabled={submitting || !items.length || !parentId}
               onClick={submit}
               className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2 rounded font-semibold disabled:bg-gray-300">
-              {submitting ? 'กำลังอัพโหลด...' : `🚀 สร้าง ${files.length} สินค้า`}
+              {submitting ? 'กำลังอัพโหลด...' : `🚀 สร้าง ${items.length} สินค้า`}
             </button>
           </div>
 
