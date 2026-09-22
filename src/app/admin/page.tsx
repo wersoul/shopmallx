@@ -1,6 +1,6 @@
 import { d1All, d1First } from '@/lib/d1';
 import Link from 'next/link';
-import { priceFormat } from '@/lib/settings';
+import { priceFormat, formatDateTime, statusLabel, statusColor } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +59,7 @@ export default async function AdminDashboard() {
                 <th className="text-left px-3 py-2">ลูกค้า</th>
                 <th className="text-right px-3 py-2">ยอด</th>
                 <th className="text-center px-3 py-2">สถานะ</th>
+                <th className="text-center px-3 py-2">เวลาที่สั่ง</th>
               </tr>
             </thead>
             <tbody>
@@ -67,7 +68,12 @@ export default async function AdminDashboard() {
                   <td className="px-3 py-2 font-mono">{o.orderNumber}</td>
                   <td className="px-3 py-2">{o.customerName}</td>
                   <td className="px-3 py-2 text-right">฿{priceFormat(o.total)}</td>
-                  <td className="px-3 py-2 text-center">{o.status}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${statusColor(o.status)}`}>
+                      {statusLabel(o.status)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{formatDateTime(o.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

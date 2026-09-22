@@ -7,6 +7,7 @@ import {
   FiUser, FiPhone, FiMapPin, FiMail, FiLock, FiSave, FiCheck,
   FiPackage, FiSettings, FiAlertCircle
 } from 'react-icons/fi';
+import { formatDateTime } from '@/lib/settings';
 
 type AccountUser = {
   id: string;
@@ -151,7 +152,7 @@ export default function AccountEditor({
             )}
             <div className="flex justify-between items-center">
               <span className="text-gray-500">สมัครเมื่อ:</span>
-              <span>{new Date(user.createdAt).toLocaleDateString('th-TH')}</span>
+              <span>{formatDateTime(user.createdAt)}</span>
             </div>
           </div>
 

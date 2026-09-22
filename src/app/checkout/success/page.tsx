@@ -1,10 +1,13 @@
 import { d1First } from '@/lib/d1';
 import Link from 'next/link';
+import { formatDateTime } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SuccessPage({ searchParams }: { searchParams: { id?: string } }) {
-  const orderRow = searchParams.id ? await d1First<any>('SELECT orderNumber, total FROM `Order` WHERE id = ?', [searchParams.id]) : null;
+  const orderRow = searchParams.id
+    ? await d1First<any>('SELECT orderNumber, total, createdAt FROM `Order` WHERE id = ?', [searchParams.id])
+    : null;
   const order = orderRow;
 
   return (
@@ -18,6 +21,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: { id
             <div className="flex justify-between"><span>เลขที่คำสั่งซื้อ:</span><span className="font-mono font-bold">{order.orderNumber}</span></div>
             <div className="flex justify-between mt-1"><span>ยอดรวม:</span><span className="font-bold text-brand-600">฿{order.total.toLocaleString()}</span></div>
             <div className="flex justify-between mt-1"><span>สถานะ:</span><span className="text-yellow-600 font-semibold">รอชำระเงิน</span></div>
+            <div className="flex justify-between mt-1"><span>เวลาที่สั่ง:</span><span className="text-gray-700">{formatDateTime(order.createdAt)}</span></div>
           </div>
         )}
         <div className="mt-6 flex gap-2 justify-center">

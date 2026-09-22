@@ -1,13 +1,15 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FiPlus, FiEdit2, FiTrash2, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiX, FiSearch } from 'react-icons/fi';
+import { formatDateTime } from '@/lib/settings';
 
 export default function CustomersManager({ users: initial, orderCounts }: { users: any[]; orderCounts: Record<string, number> }) {
   const router = useRouter();
   const [users, setUsers] = useState(initial);
   const [editing, setEditing] = useState<any>(null);
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState('');
 
   const save = async (data: any) => {
     const isNew = !data.id;
@@ -36,6 +38,22 @@ export default function CustomersManager({ users: initial, orderCounts }: { user
 
   const empty = { email: '', name: '', phone: '', role: 'customer', address: '', province: '', postalCode: '', password: '' };
 
+  // Filter the user list by free-text query. Matches against name, email and
+  // phone (the most common search fields for a customer table). Search is
+  // case-insensitive and ignores whitespace around the term.
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u: any) => {
+      const hay = [
+        u.name,
+        u.email,
+        u.phone || ''
+      ].map(v => String(v).toLowerCase());
+      return hay.some(h => h.includes(q));
+    });
+  }, [users, query]);
+
   return (
     <div>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3 flex items-center justify-between">
@@ -43,11 +61,33 @@ export default function CustomersManager({ users: initial, orderCounts }: { user
           <h1 className="text-2xl font-bold">👥 จัดการลูกค้า</h1>
           <p className="text-sm text-gray-500">
             สมาชิก {users.filter((u: any) => u.role === 'customer').length} คน | แอดมิน {users.filter((u: any) => u.role === 'admin').length} คน
+            {query.trim() && <> | ค้นพบ {filteredUsers.length} รายการ</>}
           </p>
         </div>
         <button onClick={() => setCreating(true)} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded flex items-center gap-1 text-sm">
           <FiPlus /> เพิ่มลูกค้า
         </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-card p-3 mb-3 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="ค้นหาชื่อ / อีเมล / เบอร์โทร..."
+            className="w-full border rounded pl-9 pr-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          />
+        </div>
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            className="text-sm text-gray-500 hover:text-brand-600 px-2 py-1"
+          >
+            ล้างคำค้น
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-card overflow-hidden">
@@ -64,7 +104,13 @@ export default function CustomersManager({ users: initial, orderCounts }: { user
             </tr>
           </thead>
           <tbody>
-            {users.map((u: any) => (
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-gray-400 text-sm">
+                  {query.trim() ? `ไม่พบลูกค้าที่ตรงกับ "${query.trim()}"` : 'ยังไม่มีลูกค้าในระบบ'}
+                </td>
+              </tr>
+            ) : filteredUsers.map((u: any) => (
               <tr key={u.id} className="border-t hover:bg-gray-50">
                 <td className="px-3 py-2 font-medium">{u.name}</td>
                 <td className="px-3 py-2">{u.email}</td>
@@ -75,7 +121,7 @@ export default function CustomersManager({ users: initial, orderCounts }: { user
                   </span>
                 </td>
                 <td className="px-3 py-2 text-center">{orderCounts[u.id] || 0}</td>
-                <td className="px-3 py-2 text-center text-xs">{new Date(String(u.createdAt)).toLocaleDateString('th-TH')}</td>
+                <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{formatDateTime(u.createdAt)}</td>
                 <td className="px-3 py-2 text-center">
                   <button onClick={() => setEditing(u)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded inline-block"><FiEdit2 /></button>
                   <button onClick={() => del(u.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded inline-block"><FiTrash2 /></button>

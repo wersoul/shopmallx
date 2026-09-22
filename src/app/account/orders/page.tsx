@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { d1All } from '@/lib/d1';
 import { redirect } from 'next/navigation';
-import { statusLabel, statusColor, priceFormat } from '@/lib/settings';
+import { statusLabel, statusColor, priceFormat, formatDateTime } from '@/lib/settings';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,7 @@ export default async function OrdersPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b">
                 <div>
                   <div className="font-mono text-sm font-bold">#{o.orderNumber}</div>
-                  <div className="text-xs text-gray-500">{new Date(o.createdAt).toLocaleString('th-TH')}</div>
+                  <div className="text-xs text-gray-500">สั่งเมื่อ {formatDateTime(o.createdAt)}</div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor(o.status)}`}>
                   {statusLabel(o.status)}

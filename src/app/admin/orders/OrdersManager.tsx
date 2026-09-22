@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { FiEye, FiTrash2, FiX, FiPlus, FiDownload, FiSave } from 'react-icons/fi';
-import { priceFormat, statusLabel, statusColor } from '@/lib/settings';
+import { FiEye, FiTrash2, FiX, FiPlus, FiDownload, FiSave, FiSearch } from 'react-icons/fi';
+import { priceFormat, statusLabel, statusColor, formatDateTime } from '@/lib/settings';
 import { generateInvoicePdf } from './invoicePdf';
 
 const statuses = ['pending', 'paid', 'verified', 'shipping', 'completed', 'cancelled'];
@@ -13,6 +13,7 @@ const paymentMethods = [
 export default function OrdersManager({ orders: initial, products = [] }: { orders: any[]; products?: any[] }) {
   const [orders, setOrders] = useState(initial);
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<any>(null);
 
   const updateStatus = async (id: string, status: string) => {
@@ -30,13 +31,31 @@ export default function OrdersManager({ orders: initial, products = [] }: { orde
     setOrders(orders.filter(o => o.id !== id));
   };
 
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+    if (q) {
+      list = list.filter(o => {
+        const hay = [
+          o.customerName,
+          o.customerPhone || '',
+          o.orderNumber || '',
+          o.customerEmail || ''
+        ].map(v => String(v).toLowerCase());
+        return hay.some(h => h.includes(q));
+      });
+    }
+    return list;
+  }, [orders, filter, query]);
 
   return (
     <div>
       <div className="bg-white rounded-lg shadow-card p-4 mb-3">
         <h1 className="text-2xl font-bold">🛒 จัดการคำสั่งซื้อ</h1>
-        <p className="text-sm text-gray-500">ทั้งหมด {orders.length} รายการ</p>
+        <p className="text-sm text-gray-500">
+          ทั้งหมด {orders.length} รายการ
+          {query.trim() && <> | ค้นพบ {filtered.length} รายการ</>}
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={() => setFilter('all')} className={`px-3 py-1 rounded text-sm ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-100'}`}>ทั้งหมด ({orders.length})</button>
           {statuses.map(s => (
@@ -45,6 +64,27 @@ export default function OrdersManager({ orders: initial, products = [] }: { orde
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-card p-3 mb-3 flex items-center gap-2">
+        <div className="relative flex-1 max-w-md">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="ค้นหาชื่อลูกค้า / เบอร์โทร / เลขที่คำสั่งซื้อ..."
+            className="w-full border rounded pl-9 pr-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          />
+        </div>
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            className="text-sm text-gray-500 hover:text-brand-600 px-2 py-1"
+          >
+            ล้างคำค้น
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow-card overflow-hidden">
@@ -60,7 +100,13 @@ export default function OrdersManager({ orders: initial, products = [] }: { orde
             </tr>
           </thead>
           <tbody>
-            {filtered.map(o => (
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-3 py-8 text-center text-gray-400 text-sm">
+                  {query.trim() ? `ไม่พบคำสั่งซื้อที่ตรงกับ "${query.trim()}"` : 'ยังไม่มีคำสั่งซื้อ'}
+                </td>
+              </tr>
+            ) : filtered.map(o => (
               <tr key={o.id} className="border-t hover:bg-gray-50">
                 <td className="px-3 py-2 font-mono text-xs">{o.orderNumber}</td>
                 <td className="px-3 py-2">
@@ -74,7 +120,7 @@ export default function OrdersManager({ orders: initial, products = [] }: { orde
                     {statuses.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-2 text-center text-xs">{new Date(o.createdAt).toLocaleDateString('th-TH')}</td>
+                <td className="px-3 py-2 text-center text-xs whitespace-nowrap">{formatDateTime(o.createdAt)}</td>
                 <td className="px-3 py-2 text-center whitespace-nowrap">
                   <button onClick={() => setEditing(o)} title="แก้ไข" className="text-brand-600 hover:bg-brand-50 p-1.5 rounded"><FiEye /></button>
                   <button onClick={() => generateInvoicePdf(o)} title="สร้างใบแจ้งหนี้ PDF" className="text-green-600 hover:bg-green-50 p-1.5 rounded"><FiDownload /></button>
@@ -246,7 +292,12 @@ function OrderEditModal({ order, onClose, onSaved, products }: { order: any; onC
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
       <div className="bg-white rounded-lg w-full max-w-3xl p-5 max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="font-bold">แก้ไขคำสั่งซื้อ #{order.orderNumber}</h2>
+          <div>
+            <h2 className="font-bold">แก้ไขคำสั่งซื้อ #{order.orderNumber}</h2>
+            <div className="text-xs text-gray-500 mt-0.5">
+              สั่งเมื่อ {formatDateTime(order.createdAt)}
+            </div>
+          </div>
           <button onClick={onClose}><FiX /></button>
         </div>
 
