@@ -2,6 +2,7 @@ import Link from 'next/link';
 import BannerSlider from '@/components/BannerSlider';
 import ProductCard from '@/components/ProductCard';
 import { d1All } from '@/lib/d1';
+import { jsonLd } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export default async function HomePage() {
         </div>
         <div className="lg:col-span-1 grid grid-cols-2 lg:grid-cols-1 gap-3">
           {sidebar.map(b => (
-            <Link key={b.id} href={b.link || '#'} className="relative rounded-xl overflow-hidden h-[140px] lg:h-[195px] shadow-md group">
+            <Link key={b.id} href={b.link || '#'} aria-label={b.title} className="relative rounded-xl overflow-hidden h-[140px] lg:h-[195px] shadow-md group">
               <img src={b.image} alt={b.title} className="w-full h-full object-cover group-hover:scale-105 transition" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-3 text-white">
                 <div className="font-bold text-sm">{b.title}</div>
@@ -67,8 +68,9 @@ export default async function HomePage() {
         <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
           {enrichedCategories.map(c => (
             <Link key={c.id} href={`/products?category=${c.slug}`}
+              aria-label={`หมวดหมู่ ${c.name}`}
               className="bg-white rounded-lg p-3 text-center shadow-card hover:shadow-lg hover:-translate-y-0.5 transition border border-gray-100">
-              <div className="w-12 h-12 mx-auto bg-brand-50 rounded-full flex items-center justify-center text-2xl">📦</div>
+              <div className="w-12 h-12 mx-auto bg-brand-50 rounded-full flex items-center justify-center text-2xl" aria-hidden="true">📦</div>
               <div className="text-xs mt-2 font-medium line-clamp-2">{c.name}</div>
               {c.children.length > 0 && <div className="text-[10px] text-gray-400 mt-0.5">{c.children.length} หมวดย่อย</div>}
             </Link>
@@ -80,7 +82,13 @@ export default async function HomePage() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold text-gray-800">สินค้าแนะนำ</h2>
-          <Link href="/products" className="text-brand-600 text-sm hover:underline">ดูทั้งหมด →</Link>
+          <Link
+            href="/products?featured=1"
+            aria-label="ดูสินค้าแนะนำทั้งหมด"
+            className="text-brand-600 text-sm hover:underline"
+          >
+            ดูทั้งหมด →
+          </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {featured.map(p => <ProductCard key={p.id} product={p} />)}
@@ -92,12 +100,38 @@ export default async function HomePage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-bold text-gray-800">สินค้ามาใหม่</h2>
-            <Link href="/products" className="text-brand-600 text-sm hover:underline">ดูทั้งหมด →</Link>
+            <Link
+              href="/products?new=1"
+              aria-label="ดูสินค้าใหม่ทั้งหมด"
+              className="text-brand-600 text-sm hover:underline"
+            >
+              ดูทั้งหมด →
+            </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {newProducts.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         </div>
+      )}
+
+      {/* JSON-LD: ItemList of featured products for rich search results. */}
+      {featured.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd({
+              '@context': 'https://schema.org',
+              '@type': 'ItemList',
+              name: 'สินค้าแนะนำ - อะไหล่เกษตร อะไหล่เครื่องมือ',
+              itemListElement: featured.slice(0, 8).map((p: any, i: number) => ({
+                '@type': 'ListItem',
+                position: i + 1,
+                url: `/products/${p.slug}`,
+                name: p.name
+              }))
+            })
+          }}
+        />
       )}
     </div>
   );

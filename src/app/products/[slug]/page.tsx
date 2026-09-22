@@ -1,10 +1,60 @@
 import { d1First, d1All } from '@/lib/d1';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import AddToCart from './AddToCart';
-import { priceFormat } from '@/lib/settings';
+import { priceFormat, getSeo, jsonLd, SEO_DEFAULTS } from '@/lib/settings';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const product = await d1First<{
+    name: string;
+    description: string;
+    images: string;
+    price: number;
+    salePrice: number | null;
+    brand: string | null;
+  }>(
+    `SELECT name, description, images, price, salePrice, brand
+     FROM Product WHERE slug = ? AND isActive = ?`,
+    [params.slug, 1]
+  );
+  if (!product) return { title: 'ไม่พบสินค้า' };
+
+  const seo = await getSeo();
+  const imgs: string[] = JSON.parse(product.images || '[]');
+  const ogImage = imgs[0]
+    ? (imgs[0].startsWith('http') ? imgs[0] : `${seo.siteUrl}${imgs[0]}`)
+    : (seo.ogImage.startsWith('http') ? seo.ogImage : `${seo.siteUrl}${seo.ogImage}`);
+
+  const desc = (product.description || '').slice(0, 160) ||
+    `${product.name} อะไหล่เกษตร อะไหล่เครื่องมือ คุณภาพดี ราคาถูก ส่งเร็วทั่วประเทศ`;
+  const title = `${product.name}${product.brand ? ` (${product.brand})` : ''} | SHOPMALLX`;
+
+  return {
+    title,
+    description: desc,
+    keywords: `${product.name}, ${product.brand || ''}, อะไหล่เกษตร, อะไหล่เครื่องมือ, อะไหล่เครื่องจักร, ${SEO_DEFAULTS.seo_keywords}`,
+    alternates: {
+      canonical: `/products/${params.slug}`,
+      languages: { 'th-TH': `/products/${params.slug}` }
+    },
+    openGraph: {
+      type: 'website',
+      url: `${seo.siteUrl}/products/${params.slug}`,
+      title,
+      description: desc,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: product.name }]
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: desc,
+      images: [ogImage]
+    }
+  };
+}
 
 export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
   const productRow = await d1First<any>(
@@ -23,13 +73,56 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
     [product.categoryId, product.id]
   );
 
+  const seo = await getSeo();
+  const productUrl = `${seo.siteUrl}/products/${product.slug}`;
+  const finalPrice = product.salePrice || product.price;
+
+  // JSON-LD: Product + BreadcrumbList for rich search results
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'หน้าแรก', item: `${seo.siteUrl}/` },
+      { '@type': 'ListItem', position: 2, name: 'สินค้าทั้งหมด', item: `${seo.siteUrl}/products` },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: product.category.name,
+        item: `${seo.siteUrl}/products?category=${product.category.slug}`
+      },
+      { '@type': 'ListItem', position: 4, name: product.name, item: productUrl }
+    ]
+  };
+
+  const productLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: images,
+    description: product.description,
+    sku: product.id,
+    brand: product.brand ? { '@type': 'Brand', name: product.brand } : undefined,
+    category: product.category.name,
+    offers: {
+      '@type': 'Offer',
+      url: productUrl,
+      priceCurrency: 'THB',
+      price: finalPrice,
+      availability: product.stock > 0
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: 'SHOPMALLX' }
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-3 py-4">
-      <div className="text-sm text-gray-500 mb-3">
+      <nav aria-label="Breadcrumb" className="text-sm text-gray-500 mb-3">
         <Link href="/" className="hover:text-brand-600">หน้าแรก</Link> /{' '}
+        <Link href="/products" className="hover:text-brand-600">สินค้าทั้งหมด</Link> /{' '}
         <Link href={`/products?category=${product.category.slug}`} className="hover:text-brand-600">{product.category.name}</Link> /{' '}
-        <span>{product.name}</span>
-      </div>
+        <span aria-current="page">{product.name}</span>
+      </nav>
 
       <div className="bg-white rounded-lg shadow-card overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-6 p-4 md:p-6">
         <div>
@@ -40,7 +133,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
             <div className="grid grid-cols-4 gap-2 mt-2">
               {images.map((src: string, i: number) => (
                 <div key={i} className="aspect-square rounded border overflow-hidden cursor-pointer hover:border-brand-500">
-                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <img src={src} alt={`${product.name} รูปที่ ${i + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>
@@ -92,6 +185,16 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
           </div>
         </div>
       )}
+
+      {/* JSON-LD structured data for rich search results (Google rich snippets) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(productLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbLd) }}
+      />
     </div>
   );
 }

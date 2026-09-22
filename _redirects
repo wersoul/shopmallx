@@ -1,0 +1,5 @@
+# Cloudflare Pages URL rewrites for SEO endpoints.
+# Standard SEO URLs → internal Next route segments (no dots in folder names)
+/robots.txt     /robots-txt       200
+/sitemap.xml    /sitemap-xml      200
+/og-image.png   /og-image-png     200

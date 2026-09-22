@@ -7,6 +7,60 @@ export async function getSettings(): Promise<Record<string, string>> {
   return map;
 }
 
+/**
+ * Default SEO copy. Used when Setting rows `seo_title`, `seo_description`,
+ * `seo_keywords`, `site_url` are not yet configured by admin.
+ *
+ * Keyword focus (TH): อะไหล่เกษตร, อะไหล่เครื่องมือ, อะไหล่เครื่องจักร,
+ * ชิ้นส่วนเครื่องจักรเกษตร, อุปกรณ์การเกษตร, เครื่องมือช่าง, อะไหล่ทดแทน,
+ * ซ่อมบำรุง, ส่งเร็ว, เก็บเงินปลายทาง, จัดส่งทั่วประเทศ.
+ */
+export const SEO_DEFAULTS = {
+  seo_title: 'อะไหล่เกษตร อะไหล่เครื่องมือ อะไหล่เครื่องจักร | SHOPMALLX',
+  seo_description:
+    'ศูนย์รวมอะไหล่เกษตร อะไหล่เครื่องมือ อะไหล่เครื่องจักร ชิ้นส่วนทดแทนคุณภาพดี ' +
+    'อุปกรณ์การเกษตร เครื่องมือช่าง และอะไหล่อุตสาหกรรม หลากหลายแบรนด์ ' +
+    'ราคาถูก ของแท้ ส่งเร็วทั่วประเทศ เก็บเงินปลายทางได้',
+  seo_keywords:
+    'อะไหล่เกษตร, อะไหล่เครื่องมือ, อะไหล่เครื่องจักร, อะไหล่อุตสาหกรรม, ' +
+    'ชิ้นส่วนเครื่องจักรเกษตร, อุปกรณ์การเกษตร, เครื่องมือช่าง, เครื่องมือเกษตร, ' +
+    'อะไหล่รถไถ, อะไหล่ปั๊มน้ำ, อะไหล่เครื่องตัดหญ้า, อะไหล่ทดแทน, ' +
+    'ซ่อมบำรุง, ซื้ออะไหล่ออนไลน์, ร้านอะไหล่, ศูนย์รวมอะไหล่, ' +
+    'จัดส่งทั่วประเทศ, เก็บเงินปลายทาง, ส่งเร็ว, ของแท้, ราคาถูก',
+  site_url: 'https://shopmallx.pages.dev',
+  og_image: '/og-image.png'
+} as const;
+
+export interface SeoConfig {
+  title: string;
+  description: string;
+  keywords: string;
+  siteUrl: string;
+  ogImage: string;
+}
+
+/**
+ * Resolve SEO config from D1 settings + defaults.
+ * Call once per request - very cheap.
+ */
+export async function getSeo(): Promise<SeoConfig> {
+  const s = await getSettings();
+  return {
+    title: s.seo_title || SEO_DEFAULTS.seo_title,
+    description: s.seo_description || SEO_DEFAULTS.seo_description,
+    keywords: s.seo_keywords || SEO_DEFAULTS.seo_keywords,
+    siteUrl: (s.site_url || SEO_DEFAULTS.site_url).replace(/\/+$/, ''),
+    ogImage: s.og_image || SEO_DEFAULTS.og_image
+  };
+}
+
+/**
+ * JSON-LD helper - stringify with safe escaping for embedding in <script>.
+ */
+export function jsonLd(obj: unknown): string {
+  return JSON.stringify(obj).replace(/</g, '\\u003c');
+}
+
 export function priceFormat(n: number) {
   return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(n);
 }
