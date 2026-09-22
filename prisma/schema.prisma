@@ -69,6 +69,7 @@ model Order {
   customerPhone String
   address       String
   province      String?
+  postalCode    String?
   total         Float
   shipping      Float       @default(0)
   discount      Float       @default(0)

@@ -23,6 +23,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (data.customerEmail !== undefined) set('customerEmail', data.customerEmail || null);
   if (data.address != null) set('address', String(data.address).trim());
   if (data.province !== undefined) set('province', data.province || null);
+  if (data.postalCode !== undefined) {
+    // Allow empty string (clears the field), otherwise must be 5 digits.
+    const raw = String(data.postalCode || '').trim();
+    if (raw && !/^\d{5}$/.test(raw)) {
+      return NextResponse.json({ error: 'รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก' }, { status: 400 });
+    }
+    set('postalCode', raw || null);
+  }
   if (data.paymentMethod !== undefined) set('paymentMethod', data.paymentMethod || null);
   if (data.shipping != null) set('shipping', Number(data.shipping) || 0);
   if (data.discount != null) set('discount', Number(data.discount) || 0);

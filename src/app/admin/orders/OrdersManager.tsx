@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FiEye, FiTrash2, FiX, FiPlus, FiDownload, FiSave } from 'react-icons/fi';
 import { priceFormat, statusLabel, statusColor } from '@/lib/settings';
 import { generateInvoicePdf } from './invoicePdf';
@@ -10,7 +10,7 @@ const paymentMethods = [
   { v: 'cod', l: 'เก็บเงินปลายทาง (COD)' }
 ];
 
-export default function OrdersManager({ orders: initial }: { orders: any[] }) {
+export default function OrdersManager({ orders: initial, products = [] }: { orders: any[]; products?: any[] }) {
   const [orders, setOrders] = useState(initial);
   const [filter, setFilter] = useState('all');
   const [editing, setEditing] = useState<any>(null);
@@ -89,6 +89,7 @@ export default function OrdersManager({ orders: initial }: { orders: any[] }) {
       {editing && (
         <OrderEditModal
           order={editing}
+          products={products}
           onClose={() => setEditing(null)}
           onSaved={(updated) => {
             setOrders(orders.map(o => o.id === updated.id ? { ...o, ...updated, items: updated.items } : o));
@@ -107,13 +108,14 @@ export default function OrdersManager({ orders: initial }: { orders: any[] }) {
  * form state without saving, so admins can produce an invoice reflecting what
  * they just edited.
  */
-function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () => void; onSaved: (o: any) => void }) {
+function OrderEditModal({ order, onClose, onSaved, products }: { order: any; onClose: () => void; onSaved: (o: any) => void; products: any[] }) {
   const [form, setForm] = useState({
     customerName: order.customerName || '',
     customerPhone: order.customerPhone || '',
     customerEmail: order.customerEmail || '',
     address: order.address || '',
     province: order.province || '',
+    postalCode: order.postalCode || '',
     paymentMethod: order.paymentMethod || 'transfer',
     status: order.status || 'pending',
     note: order.note || '',
@@ -123,6 +125,7 @@ function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () =
   const [items, setItems] = useState<any[]>(
     (order.items || []).map((it: any) => ({
       id: it.id,
+      productId: it.productId || null,
       name: it.name,
       price: Number(it.price) || 0,
       quantity: parseInt(String(it.quantity)) || 1
@@ -131,10 +134,50 @@ function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () =
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  const addItem = () => setItems([...items, { id: 'new_' + Date.now() + Math.random().toString(36).slice(2, 6), name: '', price: 0, quantity: 1 }]);
+  // Pre-compute a name → product lookup so the "+ เพิ่มรายการ" name input can
+  // autocomplete from the existing catalog and auto-fill price + productId.
+  const productByName = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const p of products || []) m.set(p.name, p);
+    return m;
+  }, [products]);
+
+  const addItem = () => setItems([
+    ...items,
+    {
+      id: 'new_' + Date.now() + Math.random().toString(36).slice(2, 6),
+      productId: null,
+      name: '',
+      price: 0,
+      quantity: 1
+    }
+  ]);
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
-  const updateItem = (idx: number, patch: Partial<{ name: string; price: number; quantity: number }>) => {
+  const updateItem = (idx: number, patch: Partial<{ name: string; price: number; quantity: number; productId: string | null }>) => {
     setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  /**
+   * When the admin picks a product from the datalist, mirror its price and
+   * productId into the row. If they then edit the name (custom item), we
+   * deliberately KEEP the productId — the admin might still want the catalog
+   * price as a starting point. The productId can be cleared with the "x"
+   * button next to the input.
+   */
+  const onItemNameChange = (idx: number, rawName: string) => {
+    const match = productByName.get(rawName);
+    if (match) {
+      updateItem(idx, {
+        name: rawName,
+        price: Number(match.salePrice ?? match.price) || 0,
+        productId: match.id
+      });
+    } else {
+      updateItem(idx, { name: rawName });
+    }
+  };
+  const clearItemProductLink = (idx: number) => {
+    updateItem(idx, { productId: null });
   };
 
   const subtotal = items.reduce((s, it) => s + (Number(it.price) || 0) * (parseInt(String(it.quantity)) || 1), 0);
@@ -145,6 +188,10 @@ function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () =
     if (!form.customerName.trim()) return setErr('กรุณากรอกชื่อลูกค้า');
     if (!form.customerPhone.trim()) return setErr('กรุณากรอกเบอร์โทรลูกค้า');
     if (!form.address.trim()) return setErr('กรุณากรอกที่อยู่จัดส่ง');
+    // Postal code is optional but if entered it must be 5 digits.
+    if (form.postalCode && !/^\d{5}$/.test(form.postalCode)) {
+      return setErr('รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก');
+    }
     if (items.length === 0) return setErr('ต้องมีรายการสินค้าอย่างน้อย 1 รายการ');
     for (const it of items) {
       if (!it.name.trim()) return setErr('กรุณากรอกชื่อสินค้าทุกรายการ');
@@ -222,9 +269,28 @@ function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () =
               <label className="text-gray-600 mb-1 block">ที่อยู่จัดส่ง *</label>
               <textarea rows={2} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full border rounded px-3 py-2" />
             </div>
-            <div className="md:col-span-2">
-              <label className="text-gray-600 mb-1 block">จังหวัด</label>
-              <input value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} className="w-full border rounded px-3 py-2" />
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-gray-600 mb-1 block">จังหวัด</label>
+                <input
+                  value={form.province}
+                  onChange={e => setForm({ ...form, province: e.target.value })}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="เช่น กรุงเทพมหานคร"
+                />
+              </div>
+              <div>
+                <label className="text-gray-600 mb-1 block">รหัสไปรษณีย์</label>
+                <input
+                  inputMode="numeric"
+                  maxLength={5}
+                  pattern="\d{5}"
+                  value={form.postalCode}
+                  onChange={e => setForm({ ...form, postalCode: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="เช่น 10110"
+                />
+              </div>
             </div>
             <div>
               <label className="text-gray-600 mb-1 block">วิธีชำระเงิน</label>
@@ -263,12 +329,43 @@ function OrderEditModal({ order, onClose, onSaved }: { order: any; onClose: () =
             <div className="space-y-2">
               {items.map((it, idx) => (
                 <div key={it.id || idx} className="grid grid-cols-12 gap-2 items-center">
-                  <input
-                    placeholder="ชื่อสินค้า"
-                    value={it.name}
-                    onChange={e => updateItem(idx, { name: e.target.value })}
-                    className="col-span-6 border rounded px-2 py-1.5"
-                  />
+                  <div className="col-span-6">
+                    <div className="flex items-center gap-1">
+                      <input
+                        list={`product-suggestions-${idx}`}
+                        placeholder="ชื่อสินค้า (พิมพ์เพื่อค้นหาจากสินค้าในระบบ)"
+                        value={it.name}
+                        onChange={e => onItemNameChange(idx, e.target.value)}
+                        className="flex-1 border rounded px-2 py-1.5"
+                      />
+                      {it.productId && (
+                        <button
+                          type="button"
+                          onClick={() => clearItemProductLink(idx)}
+                          className="text-gray-400 hover:text-gray-700 px-1"
+                          title="ยกเลิกการเชื่อมโยงกับสินค้าในระบบ (ทำให้เป็นรายการกำหนดเอง)"
+                        >
+                          <FiX />
+                        </button>
+                      )}
+                    </div>
+                    {/* Per-row datalist. Browsers scope datalist by `list` attr,
+                        so duplicating the option set per row keeps matches
+                        contextual. Only render when we actually have a catalog
+                        to suggest from. */}
+                    {products && products.length > 0 && (
+                      <datalist id={`product-suggestions-${idx}`}>
+                        {products.map((p: any) => (
+                          <option
+                            key={p.id}
+                            value={p.name}
+                          >
+                            {`฿${priceFormat(p.salePrice ?? p.price)}`}
+                          </option>
+                        ))}
+                      </datalist>
+                    )}
+                  </div>
                   <input
                     type="number" min={0} step="0.01"
                     placeholder="ราคา"

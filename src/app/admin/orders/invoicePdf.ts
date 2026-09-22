@@ -43,6 +43,7 @@ export type InvoiceOrder = {
   customerEmail?: string | null;
   address: string;
   province?: string | null;
+  postalCode?: string | null;
   paymentMethod?: string | null;
   status?: string;
   items: InvoiceItem[];
@@ -114,6 +115,7 @@ export async function generateInvoicePdf(order: InvoiceOrder): Promise<void> {
         <div style="font-weight:bold; color:#6b7280; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">จัดส่งไปที่</div>
         <div>${escapeHtml(order.address || '')}</div>
         ${order.province ? `<div>จังหวัด: ${escapeHtml(order.province)}</div>` : ''}
+        ${order.postalCode ? `<div>รหัสไปรษณีย์: ${escapeHtml(order.postalCode)}</div>` : ''}
         <div style="margin-top:6px; color:#6b7280; font-size:11px;">ชำระโดย: ${escapeHtml(PAYMENT_LABEL[order.paymentMethod || ''] || order.paymentMethod || '-')}</div>
       </div>
     </div>
