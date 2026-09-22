@@ -45,6 +45,36 @@ export interface UploadResult {
 }
 
 /**
+ * Upload raw bytes (Uint8Array / ArrayBuffer) to R2 under a given folder.
+ * Used by auto-generated assets (favicons, OG images) where the source isn't
+ * a File/Blob from a multipart form.
+ */
+export async function uploadBytes(
+  bytes: Uint8Array,
+  contentType: string,
+  folder: string,
+  filename: string
+): Promise<UploadResult> {
+  const r2 = getR2();
+  if (!r2) throw new Error('R2 binding not available');
+  const base = getR2PublicBase();
+  if (!base) throw new Error('R2_PUBLIC_BASE is not configured');
+
+  const ext = EXT_BY_TYPE[contentType] || (filename.match(/\.([a-zA-Z0-9]+)$/)?.[1] || 'bin');
+  const safeName = slug(filename).replace(/\.[a-z0-9]+$/i, '') || 'file';
+  const key = `${folder.replace(/\/+$/, '')}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}.${ext}`;
+
+  await r2.put(key, bytes, { httpMetadata: { contentType } });
+  return {
+    key,
+    url: `${base}/${key}`,
+    size: bytes.byteLength,
+    type: contentType,
+    name: `${filename}.${ext}`
+  };
+}
+
+/**
  * Upload a File / Blob to R2 and return its public URL.
  * If R2 binding or public base URL is unavailable, throws.
  */

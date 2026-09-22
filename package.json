@@ -14,6 +14,7 @@
     "deploy": "npm run build:cf && wrangler pages deploy .vercel/output/static --project-name=shopmallx --commit-dirty=true --branch=main"
   },
   "dependencies": {
+    "@cf-wasm/photon": "^0.4.0",
     "bcryptjs": "^2.4.3",
     "html2canvas": "^1.4.1",
     "jose": "^5.9.6",
