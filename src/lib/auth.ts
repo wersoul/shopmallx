@@ -30,7 +30,7 @@ export async function getCurrentUser() {
   const payload = await verifyToken(token);
   if (!payload) return null;
   const user = await d1First<any>(
-    'SELECT id, email, name, role, phone, address, createdAt FROM User WHERE id = ?',
+    'SELECT id, email, name, role, phone, address, province, postalCode, createdAt FROM User WHERE id = ?',
     [payload.userId as string]
   );
   return user;

@@ -23,6 +23,8 @@ export default async function AccountPage() {
         role: user.role,
         phone: user.phone || '',
         address: user.address || '',
+        province: user.province || '',
+        postalCode: user.postalCode || '',
         createdAt: user.createdAt
       }}
       ordersCount={ordersCount}

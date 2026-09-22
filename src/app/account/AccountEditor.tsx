@@ -15,6 +15,8 @@ type AccountUser = {
   role: string;
   phone: string;
   address: string;
+  province: string;
+  postalCode: string;
   createdAt: string;
 };
 
@@ -27,11 +29,13 @@ export default function AccountEditor({
 }) {
   const router = useRouter();
 
-  // Profile fields (name, phone, address).
+  // Profile fields (name, phone, address, province, postalCode).
   const [profile, setProfile] = useState({
     name: user.name,
     phone: user.phone,
-    address: user.address
+    address: user.address,
+    province: user.province,
+    postalCode: user.postalCode
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -45,7 +49,9 @@ export default function AccountEditor({
   const dirtyProfile =
     profile.name !== user.name ||
     profile.phone !== user.phone ||
-    profile.address !== user.address;
+    profile.address !== user.address ||
+    profile.province !== user.province ||
+    profile.postalCode !== user.postalCode;
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +141,14 @@ export default function AccountEditor({
               <span className="text-gray-500">เบอร์โทร:</span>
               <span className="font-medium text-right">{profile.phone || '-'}</span>
             </div>
+            {(profile.province || profile.postalCode) && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">จังหวัด/รหัส:</span>
+                <span className="font-medium text-right">
+                  {profile.province || '-'}{profile.postalCode ? ` ${profile.postalCode}` : ''}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="text-gray-500">สมัครเมื่อ:</span>
               <span>{new Date(user.createdAt).toLocaleDateString('th-TH')}</span>
@@ -193,15 +207,39 @@ export default function AccountEditor({
                   <FiMapPin className="text-xs" /> ที่อยู่จัดส่ง
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   maxLength={500}
                   value={profile.address}
                   onChange={e => setProfile({ ...profile, address: e.target.value })}
                   className="w-full border rounded px-3 py-2 focus:border-brand-500 focus:outline-none"
-                  placeholder="บ้านเลขที่ ซอย ถนน แขวง/ตำบล เขต/อำเภอ จังหวัด รหัสไปรษณีย์"
+                  placeholder="บ้านเลขที่ ซอย ถนน แขวง/ตำบล เขต/อำเภอ"
                 />
                 <div className="text-[10px] text-gray-400 text-right">
                   {profile.address.length}/500
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-600 mb-1 block">จังหวัด</label>
+                  <input
+                    maxLength={100}
+                    value={profile.province}
+                    onChange={e => setProfile({ ...profile, province: e.target.value })}
+                    className="w-full border rounded px-3 py-2 focus:border-brand-500 focus:outline-none"
+                    placeholder="เช่น กรุงเทพมหานคร"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-600 mb-1 block">รหัสไปรษณีย์</label>
+                  <input
+                    inputMode="numeric"
+                    maxLength={5}
+                    pattern="[0-9]{5}"
+                    value={profile.postalCode}
+                    onChange={e => setProfile({ ...profile, postalCode: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                    className="w-full border rounded px-3 py-2 focus:border-brand-500 focus:outline-none"
+                    placeholder="เช่น 10110"
+                  />
                 </div>
               </div>
 

@@ -14,6 +14,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (data.name != null) set('name', data.name);
   if (data.phone !== undefined) set('phone', data.phone || null);
   if (data.address !== undefined) set('address', data.address || null);
+  if (data.province !== undefined) set('province', data.province || null);
+  if (data.postalCode !== undefined) set('postalCode', data.postalCode || null);
   if (data.role != null && (data.role === 'admin' || data.role === 'customer')) {
     set('role', data.role);
   }
@@ -27,7 +29,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   binds.push(params.id);
   await d1Run(`UPDATE User SET ${updates.join(', ')} WHERE id = ?`, binds);
   const user = await d1First<any>(
-    'SELECT id, email, name, phone, role, address, createdAt FROM User WHERE id = ?', [params.id]
+    'SELECT id, email, name, phone, role, address, province, postalCode, createdAt FROM User WHERE id = ?', [params.id]
   );
   return NextResponse.json({ success: true, user });
 }

@@ -34,7 +34,7 @@ export default function CustomersManager({ users: initial, orderCounts }: { user
     }
   };
 
-  const empty = { email: '', name: '', phone: '', role: 'customer', address: '', password: '' };
+  const empty = { email: '', name: '', phone: '', role: 'customer', address: '', province: '', postalCode: '', password: '' };
 
   return (
     <div>
@@ -128,6 +128,23 @@ function UserForm({ user, onSave, onClose }: any) {
           <div>
             <label className="block mb-1 font-medium">ที่อยู่</label>
             <textarea rows={2} value={form.address || ''} onChange={e => setForm({ ...form, address: e.target.value })} className="w-full border rounded px-3 py-2" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block mb-1 font-medium">จังหวัด</label>
+              <input value={form.province || ''} onChange={e => setForm({ ...form, province: e.target.value })} className="w-full border rounded px-3 py-2" />
+            </div>
+            <div>
+              <label className="block mb-1 font-medium">รหัสไปรษณีย์</label>
+              <input
+                maxLength={5}
+                pattern="[0-9]{5}"
+                value={form.postalCode || ''}
+                onChange={e => setForm({ ...form, postalCode: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                className="w-full border rounded px-3 py-2"
+                placeholder="เช่น 10110"
+              />
+            </div>
           </div>
           <div>
             <label className="block mb-1 font-medium">ระดับ</label>

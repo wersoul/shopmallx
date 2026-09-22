@@ -10,7 +10,7 @@ function genId() {
 export async function GET() {
   try { await requireAdmin(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
   const users = await d1All<any>(
-    'SELECT id, email, name, phone, role, address, createdAt FROM User ORDER BY createdAt DESC'
+    'SELECT id, email, name, phone, role, address, province, postalCode, createdAt FROM User ORDER BY createdAt DESC'
   );
   return NextResponse.json({ users });
 }
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   const hash = await hashPassword(String(data.password));
   const now = new Date().toISOString();
   await d1Run(
-    `INSERT INTO User (id, email, password, name, phone, role, address, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO User (id, email, password, name, phone, role, address, province, postalCode, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       String(data.email).toLowerCase(),
@@ -38,11 +38,13 @@ export async function POST(req: NextRequest) {
       data.phone || null,
       data.role === 'admin' ? 'admin' : 'customer',
       data.address || null,
+      data.province || null,
+      data.postalCode || null,
       now, now
     ]
   );
   const user = await d1First<any>(
-    'SELECT id, email, name, phone, role, address, createdAt FROM User WHERE id = ?', [id]
+    'SELECT id, email, name, phone, role, address, province, postalCode, createdAt FROM User WHERE id = ?', [id]
   );
   return NextResponse.json({ success: true, user });
 }

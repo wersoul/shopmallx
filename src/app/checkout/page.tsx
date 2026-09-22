@@ -17,7 +17,7 @@ export default function CheckoutPage() {
     fetch('/api/auth/me').then(r => r.json()).then((u: any) => {
       if (u?.user) {
         setUser(u.user);
-        setForm(f => ({ ...f, customerName: u.user.name, customerPhone: u.user.phone || '', customerEmail: u.user.email, address: u.user.address || '' }));
+        setForm(f => ({ ...f, customerName: u.user.name, customerPhone: u.user.phone || '', customerEmail: u.user.email, address: u.user.address || '', province: u.user.province || '' }));
       }
     });
   }, []);
