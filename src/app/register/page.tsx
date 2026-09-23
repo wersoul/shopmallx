@@ -32,7 +32,6 @@ export default function RegisterPage() {
     <div className="max-w-md mx-auto px-3 py-10">
       <div className="bg-white rounded-lg shadow-card p-6">
         <h1 className="text-2xl font-bold mb-1 text-center text-brand-600">สมัครสมาชิก</h1>
-        <p className="text-center text-sm text-gray-500 mb-6">(ฟรี)</p>
         <form onSubmit={submit} className="space-y-3 text-sm">
           <input required placeholder="ชื่อ-นามสกุล *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full border rounded px-3 py-2" />
           <input required type="email" placeholder="อีเมล *" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full border rounded px-3 py-2" />

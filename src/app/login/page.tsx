@@ -44,11 +44,7 @@ export default function LoginPage() {
         <div className="mt-4 text-center text-sm">
           ยังไม่มีบัญชี? <Link href="/register" className="text-brand-600 hover:underline">สมัครสมาชิก</Link>
         </div>
-        <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-500">
-          <div className="font-semibold mb-1">ทดสอบ:</div>
-          <div>Admin: admin@shopmallx.com / admin1234</div>
-          <div>ลูกค้า: demo@shopmallx.com / 12345678</div>
-        </div>
+        
       </div>
     </div>
   );
